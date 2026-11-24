@@ -129,6 +129,42 @@ and open the console with a terminal program (picocom, Tera Term, ...) at
 scripts: it listens, and types only what `-k` gives it.)
 Before turning the power off, `sync` or `shutdown -h now`.
 
+## The bitstream
+
+As built by `make bit` from the sources of commit 4cec388 (unchanged since;
+Vivado 2025.2, non-project flow, `tcl/build.tcl`):
+
+| | |
+|---|---|
+| Part | xc7s50csga324-1 (Spartan-7 50) |
+| Top | `arty_top_b` |
+| Defines | `MISTER CLKPERBIT=16 CACHEIDX=10 CLK_MHZ=40 VAX_EXT_MEM ARTY_MEM_KB=32768 ARTY_SD ARTY_BOOTROM VAX_UNIBUS ARTY_DZ` |
+| Clocks | 100 MHz in → MMCM: core 40 MHz, MIG system 160 MHz, MIG reference 200 MHz; MIG UI 80 MHz (DDR3L at 320 MHz, 640 MT/s) |
+| MIG | mig_7series 4.2, MT41K128M16XX-15E (DDR3L 1.35 V, x16), 3125 ps, PHY 4:1, BL8, native interface; 32 MB of the 256 MB used |
+| Timing | WNS +1.344 ns, WHS +0.013 ns (all constraints met); core clock alone: WNS +3.152 ns |
+| Configuration | SPI x4, 33 MHz, compressed; `USR_ACCESS` = build time |
+
+Utilization after routing:
+
+| Resource | Used | Available | % |
+|---|---:|---:|---:|
+| Slice LUTs | 28,779 | 32,600 | 88.3 |
+| &nbsp;&nbsp;as logic | 27,678 | 32,600 | 84.9 |
+| &nbsp;&nbsp;as memory | 1,101 | 9,600 | 11.5 |
+| Slice registers | 16,177 | 65,200 | 24.8 |
+| Block RAM tiles | 26 | 75 | 34.7 |
+| DSPs | 23 | 120 | 19.2 |
+| MMCM / PLL | 2 / 1 | 5 / 5 | |
+| I/O | 69 | 210 | 32.9 |
+
+By block (LUTs): `vax_core` 22,741 (of it the CPU 16,907), the MIG 3,704,
+the SD card 812, the DZ11 348, the MIG bridge 72. The block RAM holds the
+16 KB cache, the microcode and the 32 KB boot ROM.
+
+Build times on an 8-thread run: `make mig` about 3 minutes, `make bit`
+about 8 minutes. The reports are in `build/vivado/` (`rou_util.rpt`,
+`rou_util_h.rpt`, `rou_tim.rpt`).
+
 ## Bench
 
 ```sh

@@ -77,6 +77,9 @@
 module vax_io #(
 	parameter CLK_HZ = 50000000,
 	parameter MEMMB  = 32,           // installed memory, megabytes (4 MB arrays)
+	// the memory really there, kilobytes: references above it, in the last
+	// megabyte the PAMM gives the arrays, are non-existent memory too
+	parameter MEMKB  = MEMMB * 1024,
 	parameter TSCALE = 1             // the disks' mechanical times divided by
 	                                 // this (simulation)
 ) (
@@ -268,12 +271,15 @@ module vax_io #(
 	// address comes from a register already; its code is a clock behind
 	// it, and the comparison says when the two belong together.
 	wire look   = stb_r && !walking && mb_ok;
-	wire is_mem = look && (code_q[4:3] == 2'b00);
+	// the KB the reference falls in, in the arrays' address space
+	wire [14:0] kb_c = {code_q[2:0], adr_r[21:10]};
+	wire [14:0] kb_d = {dcode_q[2:0], dma_adr[21:10]};
+	wire is_mem = look && (code_q[4:3] == 2'b00) && ({17'd0, kb_c} < MEMKB);
 	wire is_ioa = look && (code_q == 5'h18);
 	wire is_nxm = look && !is_mem && !is_ioa;
 
 	wire dlook  = dma_stb && !walking && dmb_ok && (dmb_q == dma_adr[29:20]);
-	wire d_mem  = dlook && (dcode_q[4:3] == 2'b00);
+	wire d_mem  = dlook && (dcode_q[4:3] == 2'b00) && ({17'd0, kb_d} < MEMKB);
 	wire d_nxm  = dlook && !d_mem;
 
 	/* ---------------------------------------------- memory: CPU or DMA */

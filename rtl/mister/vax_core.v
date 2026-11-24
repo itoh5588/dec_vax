@@ -25,7 +25,9 @@
 module vax_core #(
 	parameter CLK_HZ   = 50000000,
 	parameter CACHEIDX = 10,         // 2^CACHEIDX lines of 16 bytes
-	parameter TSCALE   = 1           // disk mechanical times / TSCALE (simulation)
+	parameter TSCALE   = 1,          // disk mechanical times / TSCALE (simulation)
+	parameter MEMMB    = 32,         // memory the console's map shows, megabytes
+	parameter MEMKB    = MEMMB * 1024 // memory really there, kilobytes
 ) (
 	input             clk,
 	input             rst_mem,       // SDRAM controller reset (power-up only)
@@ -232,7 +234,7 @@ module vax_core #(
 	wire [21:0] mem_pre;
 	wire  [3:0] mem_sel;
 
-	vax_io #(.CLK_HZ(CLK_HZ), .MEMMB(32), .TSCALE(TSCALE)) io (
+	vax_io #(.CLK_HZ(CLK_HZ), .MEMMB(MEMMB), .MEMKB(MEMKB), .TSCALE(TSCALE)) io (
 		.clk      (clk),
 		.rst      (rst_cpu),
 

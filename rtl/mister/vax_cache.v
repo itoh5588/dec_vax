@@ -53,6 +53,14 @@
 //  SPDX-License-Identifier: BSD-2-Clause
 //============================================================================
 
+// Vivado: these RAMs in LUTs where ARTY_LUTRAM is defined (the block RAM
+// is all main memory there, track A); Quartus ignores ram_style
+`ifdef ARTY_LUTRAM
+`define VAX_LUTRAM (* ram_style = "distributed" *)
+`else
+`define VAX_LUTRAM
+`endif
+
 `default_nettype none
 
 module vax_cache #(
@@ -91,11 +99,11 @@ module vax_cache #(
 	localparam TAGB = AB - IDXB - 2;
 
 	// ---------------------------------------------------------------- RAMs
-	(* ramstyle = "M10K" *) reg [TAGB:0]  tag_ram [0:(1<<IDXB)-1];
-	(* ramstyle = "M10K" *) reg [7:0]     dat_ram0 [0:(1<<(IDXB+2))-1];
-	(* ramstyle = "M10K" *) reg [7:0]     dat_ram1 [0:(1<<(IDXB+2))-1];
-	(* ramstyle = "M10K" *) reg [7:0]     dat_ram2 [0:(1<<(IDXB+2))-1];
-	(* ramstyle = "M10K" *) reg [7:0]     dat_ram3 [0:(1<<(IDXB+2))-1];
+	(* ramstyle = "M10K" *) `VAX_LUTRAM reg [TAGB:0]  tag_ram [0:(1<<IDXB)-1];
+	(* ramstyle = "M10K" *) `VAX_LUTRAM reg [7:0]     dat_ram0 [0:(1<<(IDXB+2))-1];
+	(* ramstyle = "M10K" *) `VAX_LUTRAM reg [7:0]     dat_ram1 [0:(1<<(IDXB+2))-1];
+	(* ramstyle = "M10K" *) `VAX_LUTRAM reg [7:0]     dat_ram2 [0:(1<<(IDXB+2))-1];
+	(* ramstyle = "M10K" *) `VAX_LUTRAM reg [7:0]     dat_ram3 [0:(1<<(IDXB+2))-1];
 
 	reg [TAGB:0]      tag_q;
 	reg [7:0]         dat_q0, dat_q1, dat_q2, dat_q3;

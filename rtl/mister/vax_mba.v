@@ -95,6 +95,14 @@
 //  SPDX-License-Identifier: BSD-2-Clause
 //============================================================================
 
+// Vivado: these RAMs in LUTs where ARTY_LUTRAM is defined (the block RAM
+// is all main memory there, track A); Quartus ignores ram_style
+`ifdef ARTY_LUTRAM
+`define VAX_LUTRAM (* ram_style = "distributed" *)
+`else
+`define VAX_LUTRAM
+`endif
+
 `default_nettype none
 
 module vax_mba #(
@@ -189,8 +197,8 @@ module vax_mba #(
 
 	// the map: two copies written together (M10K), one read at the page
 	// VAR is in, one at the CPU's address; both a clock late
-	(* ramstyle = "M10K" *) reg [21:0] map_a [0:255];  // {V, PFN}
-	(* ramstyle = "M10K" *) reg [21:0] map_b [0:255];
+	(* ramstyle = "M10K" *) `VAX_LUTRAM reg [21:0] map_a [0:255];  // {V, PFN}
+	(* ramstyle = "M10K" *) `VAX_LUTRAM reg [21:0] map_b [0:255];
 	reg  [21:0] map_cur, map_cpu;
 	reg   [7:0] map_cur_p;
 	reg         map_we;

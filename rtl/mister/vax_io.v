@@ -72,6 +72,14 @@
 //  SPDX-License-Identifier: BSD-2-Clause
 //============================================================================
 
+// Vivado: these RAMs in LUTs where ARTY_LUTRAM is defined (the block RAM
+// is all main memory there, track A); Quartus ignores ram_style
+`ifdef ARTY_LUTRAM
+`define VAX_LUTRAM (* ram_style = "distributed" *)
+`else
+`define VAX_LUTRAM
+`endif
+
 `default_nettype none
 
 module vax_io #(
@@ -170,9 +178,9 @@ module vax_io #(
 
 	// three copies, written together: one is read for every CPU reference,
 	// one for every DMA reference, one at PAMLOC for MFPR PAMACC
-	(* ramstyle = "M10K" *) reg [4:0] pamm  [0:1023];
-	(* ramstyle = "M10K" *) reg [4:0] pamm2 [0:1023];
-	(* ramstyle = "M10K" *) reg [4:0] pamm3 [0:1023];
+	(* ramstyle = "M10K" *) `VAX_LUTRAM reg [4:0] pamm  [0:1023];
+	(* ramstyle = "M10K" *) `VAX_LUTRAM reg [4:0] pamm2 [0:1023];
+	(* ramstyle = "M10K" *) `VAX_LUTRAM reg [4:0] pamm3 [0:1023];
 	integer k;
 	initial
 		for (k = 0; k < 1024; k = k + 1) begin

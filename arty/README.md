@@ -9,7 +9,11 @@ r-vax is a VAX written in Verilog. The MiSTer branch implements the VAX
 management, machine checks and console halt codes, and its I/O side (the
 physical address map, SBIA, RH780, UBA), after DEC's 8600 documents. It
 is not a copy of the 8600's hardware (an ECL pipelined machine), and it
-is much slower: about 1.1 MIPS at 40 MHz here.
+is much slower. On a simple loop, `software/bench.bin` (ADDL2, MOVL
+store, MOVL load, SOBGTR, timed with the interval clock), it runs about
+1.1 million instructions a second at 40 MHz here (1.094, 36.6 clocks an
+instruction); heavier instructions take longer. This is not comparable
+with DEC's VUP ratings (the 8600 was rated at about 4 times a VAX-11/780).
 
 4.3BSD takes it for a VAX 8600. The kernel reads the system ID at boot and
 sets `cpu`; on the board:

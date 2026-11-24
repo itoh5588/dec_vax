@@ -7,7 +7,9 @@
 > sees it, runs on the Arty S7-50 with DDR3L main memory and an RP07 on a
 > microSD card, and boots the unmodified 4.3BSD GENERIC kernel to
 > multi-user mode at power-up. 4.3BSD takes it for a VAX 8600. It is not a
-> copy of DEC's 8600 hardware, and much slower (about 1.1 MIPS at 40 MHz).
+> copy of DEC's 8600 hardware, and much slower: about 1.1 million
+> instructions a second at 40 MHz on a simple loop (`software/bench.bin`),
+> not comparable with DEC's VUP ratings.
 > See [arty/README.md](arty/README.md).
 >
 > <img src="arty/docs/arty-s7.jpg" alt="The Arty S7-50 with the Pmod MicroSD on JD and a USB-UART on JC" width="400">

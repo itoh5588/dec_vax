@@ -1,11 +1,14 @@
 # r-vax: DEC VAX Verilog code.
 
-### A VAX 8600 running 4.3BSD on a small FPGA
+### A VAX 8600-compatible core running 4.3BSD on a small FPGA
 
 > **This fork (branch `arty-s7`): 4.3BSD on a Digilent Arty S7-50.** The
-> MiSTer branch's VAX 8600 runs on the Arty S7-50 with DDR3L main memory
-> and an RP07 on a microSD card, and boots the unmodified 4.3BSD GENERIC
-> kernel to multi-user mode at power-up. See [arty/README.md](arty/README.md).
+> MiSTer branch's r-vax core, which implements the VAX 8600 as software
+> sees it, runs on the Arty S7-50 with DDR3L main memory and an RP07 on a
+> microSD card, and boots the unmodified 4.3BSD GENERIC kernel to
+> multi-user mode at power-up. 4.3BSD takes it for a VAX 8600. It is not a
+> copy of DEC's 8600 hardware, and much slower (about 1.1 MIPS at 40 MHz).
+> See [arty/README.md](arty/README.md).
 >
 > <img src="arty/docs/arty-s7.jpg" alt="The Arty S7-50 with the Pmod MicroSD on JD and a USB-UART on JC" width="400">
 >

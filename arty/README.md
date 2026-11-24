@@ -1,8 +1,28 @@
 # r-vax on the Digilent Arty S7-50: 4.3BSD
 
-This directory puts the r-vax VAX 8600 core (`../rtl`, the MiSTer branch)
-on a Digilent Arty S7-50 and boots **4.3BSD** (June 1986, the GENERIC
-kernel, unmodified) to multi-user mode from a microSD card.
+This directory puts the r-vax core (`../rtl`, the MiSTer branch) on a
+Digilent Arty S7-50 and boots **4.3BSD** (June 1986, the GENERIC kernel,
+unmodified) to multi-user mode from a microSD card.
+
+r-vax is a VAX written in Verilog. The MiSTer branch implements the VAX
+8600 as software sees it: its system ID, internal registers, memory
+management, machine checks and console halt codes, and its I/O side (the
+physical address map, SBIA, RH780, UBA), after DEC's 8600 documents. It
+is not a copy of the 8600's hardware (an ECL pipelined machine), and it
+is much slower: about 1.1 MIPS at 40 MHz here.
+
+4.3BSD takes it for a VAX 8600. The kernel reads the system ID at boot and
+sets `cpu`; on the board:
+
+```
+# echo "cpu/D" | adb -k /vmunix /dev/mem
+_cpu:           4
+# grep VAX_8600 /usr/sys/vax/cpu.h
+#define VAX_8600        4
+```
+
+and its autoconfiguration takes the 8600's path (`SBIA0 at IO adaptor 0`
+in the boot messages below).
 
 ![4.3BSD booting on the Arty S7: the console from power-up to login](docs/boot-43bsd.gif)
 
@@ -38,7 +58,7 @@ the console monitor.
 
 | | |
 |---|---|
-| CPU | r-vax at 40 MHz, VAX 8600 (SBIA, RH780, UBA) |
+| CPU | r-vax at 40 MHz, as a VAX 8600 (SBIA, RH780, UBA) |
 | Memory | 32 MB of the board's DDR3L, through the Xilinx MIG (`rtl/arty_mem_mig.v`) |
 | Disk | RP07 unit 0 on a microSD card, raw from sector 0 (Pmod MicroSD on **JD**; `rtl/arty_sdcard.v`, sdspi) |
 | Console | the board's USB UART, 115200 8N1 |

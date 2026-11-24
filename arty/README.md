@@ -95,6 +95,23 @@ Switches and LEDs:
 - SIMH's `vax8600` (open-simh), in `PATH` or as `VAX8600=...`, curl,
   python3. For the bench: Verilator 5.
 
+### Development environment
+
+All of this was developed and tested on **Windows 11** with **WSL2,
+Ubuntu 24.04 LTS**:
+
+- Vivado 2025.2 for Linux, installed inside WSL; Verilator 5.020; Open
+  SIMH V4.1-0 (`vax8600`, git 87eb7d5e); Python 3.12.
+- The board's USB (JTAG and the console UART, `/dev/ttyUSB1`), the USB-UART
+  on JC and the microSD card reader reach WSL through
+  [usbipd-win](https://github.com/dorssel/usbipd-win), from PowerShell:
+  `usbipd list`, then `usbipd attach --wsl --busid <id>`. The card then
+  shows up as a block device (`/dev/sdX`) for `dd`.
+- Writing the card from Windows itself (`\\.\PhysicalDriveN`) was refused;
+  `dd` in WSL through usbipd works.
+
+A native Linux machine should work the same way, without usbipd.
+
 ## Build and run
 
 ```sh

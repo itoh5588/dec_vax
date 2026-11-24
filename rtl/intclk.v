@@ -68,7 +68,12 @@ module intclk(
 	output		run_o
 );
 
-parameter CLKINIT =	8'h4f;	// 50MHz clock to microseconds: 79..128 = 50 states
+// The microsecond prescaler counts CLKINIT..128, 129 - CLKINIT states:
+// one per clock of a microsecond at CLK_MHZ (a define, default 50).
+`ifndef CLK_MHZ
+`define CLK_MHZ 50
+`endif
+parameter CLKINIT =	8'd129 - 8'd`CLK_MHZ;	// 50MHz: 79..128 = 50 states
 parameter TODRCNTINIT =	15'h18f1; // 10 ms clock: 6385..16384 = 10000 us
 
 	reg [31:0]	nicr;

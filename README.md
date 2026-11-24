@@ -16,6 +16,10 @@
 >
 > ![4.3BSD booting on the Arty S7](arty/docs/boot-43bsd.gif)
 >
+> Built on r-vax by Anders Magnusson and its MiSTer branch by Maverick-Shark,
+> with 4.3BSD from CSRG, UC Berkeley, kept by TUHS; see the
+> [acknowledgements](arty/README.md#acknowledgements).
+>
 > Upstream: [Maverick-Shark/dec_vax](https://github.com/Maverick-Shark/dec_vax)
 > (MiSTer branch). The text below is upstream's.
 

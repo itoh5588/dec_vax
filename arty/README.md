@@ -133,6 +133,10 @@ and open the console with a terminal program (picocom, Tera Term, ...) at
 scripts: it listens, and types only what `-k` gives it.)
 Before turning the power off, `sync` or `shutdown -h now`.
 
+These steps were checked end to end on the board: a disk from `make disk`
+(fetched from TUHS), written to the card with `dd`, and the bitstream from
+`make bit` loaded with `make program` boot to `login:` in 98 s.
+
 ## The bitstream
 
 As built by `make bit` from the sources of commit 4cec388 (unchanged since;
@@ -199,6 +203,26 @@ stops with `TIMEOUT`.
 4.3BSD itself is not in this repository; `make disk` fetches it from
 [TUHS](https://www.tuhs.org/Archive/Distributions/UCB/4BSD/4.3BSD/) (the
 Caldera license for ancient UNIX).
+
+## Acknowledgements
+
+- **Anders Magnusson** wrote r-vax, the VAX in Verilog this all runs on.
+- **Maverick-Shark** made the MiSTer branch: the VAX 8600's memory
+  management, I/O side (SBIA, RH780, RP07, UBA), console and tests, after
+  DEC's documents. 4.3BSD boots because that work is so close to the 8600.
+- The **Computer Systems Research Group, University of California,
+  Berkeley**, for 4.3BSD.
+- **The Unix Heritage Society (TUHS)** and Warren Toomey, for keeping the
+  4.3BSD distribution, and Caldera for its license for ancient UNIX.
+- **SIMH** (Bob Supnik and the open-simh contributors): its `vax8600`
+  installs 4.3BSD here, and served as the reference for the core's tests.
+- The Computer History Wiki (gunkies.org), "Installing 4.3 BSD on SIMH",
+  for the order of the distribution tape and the install.
+- **w11** by Walter F. J. Mueller, the PDP-11/70 in an FPGA: its Arty S7
+  port showed the DDR3L's MIG settings and clocking that work on this
+  board (only those values were taken; no w11 code is here).
+- **Digilent** for the Arty S7-50 and the Pmods; **asciinema** and **agg**
+  for the recording of the console.
 
 ## License
 

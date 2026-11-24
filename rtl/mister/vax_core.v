@@ -29,6 +29,22 @@ module vax_core #(
 	parameter MEMMB    = 32,         // memory the console's map shows, megabytes
 	parameter MEMKB    = MEMMB * 1024 // memory really there, kilobytes
 ) (
+`ifdef VAX_EXT_MEM
+	// the memory controller outside (VAX_EXT_MEM: no vax_sdram here): the
+	// same transactions as vax_sdram's (hold xm_req until xm_done; a read
+	// is a line of 4 longwords as xm_rstb pulses)
+	output            xm_req,
+	output            xm_we,
+	output     [22:0] xm_adr,
+	output     [31:0] xm_dat,
+	output      [3:0] xm_sel,
+	input             xm_done,
+	input             xm_busy,
+	input             xm_ready,
+	input      [31:0] xm_rdat,
+	input       [1:0] xm_ridx,
+	input             xm_rstb,
+`endif
 	input             clk,
 	input             rst_mem,       // SDRAM controller reset (power-up only)
 	input             rst_cpu,       // CPU and cache reset
@@ -369,6 +385,23 @@ module vax_core #(
 	assign cache_done = ~own_dma & m_done;
 	assign cache_rstb = ~own_dma & m_rstb;
 
+`ifdef VAX_EXT_MEM
+	assign xm_req    = m_req;
+	assign xm_we     = m_we;
+	assign xm_adr    = m_adr;
+	assign xm_dat    = m_dat;
+	assign xm_sel    = m_sel;
+	assign m_done    = xm_done;
+	assign m_busy    = xm_busy;
+	assign mem_ready = xm_ready;
+	assign m_rdat    = xm_rdat;
+	assign m_ridx    = xm_ridx;
+	assign m_rstb    = xm_rstb;
+	assign sd_a = 13'd0;  assign sd_ba = 2'd0;
+	assign sd_ncs = 1'b1; assign sd_nras = 1'b1; assign sd_ncas = 1'b1; assign sd_nwe = 1'b1;
+	assign sd_dqml = 1'b1; assign sd_dqmh = 1'b1;
+	assign sd_dq_o = 16'd0; assign sd_dq_oe = 1'b0;
+`else
 	vax_sdram #(.CLK_HZ(CLK_HZ)) sdram (
 		.clk      (clk),
 		.rst      (rst_mem),
@@ -398,6 +431,7 @@ module vax_core #(
 		.sd_dq_oe (sd_dq_oe),
 		.sd_dq_i  (sd_dq_i)
 	);
+`endif
 
 
 endmodule

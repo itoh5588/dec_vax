@@ -5,6 +5,8 @@
 > and an RP07 on a microSD card, and boots the unmodified 4.3BSD GENERIC
 > kernel to multi-user mode at power-up. See [arty/README.md](arty/README.md).
 >
+> <img src="arty/docs/arty-s7.jpg" alt="The Arty S7-50 with the Pmod MicroSD on JD and a USB-UART on JC" width="400">
+>
 > ![4.3BSD booting on the Arty S7](arty/docs/boot-43bsd.gif)
 >
 > Upstream: [Maverick-Shark/dec_vax](https://github.com/Maverick-Shark/dec_vax)

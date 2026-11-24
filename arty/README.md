@@ -34,6 +34,8 @@ the console monitor.
 
 ## The system
 
+![The Arty S7-50 with the Pmod MicroSD on JD and a USB-UART on JC](docs/arty-s7.jpg)
+
 | | |
 |---|---|
 | CPU | r-vax at 40 MHz, VAX 8600 (SBIA, RH780, UBA) |

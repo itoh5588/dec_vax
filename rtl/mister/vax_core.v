@@ -104,6 +104,21 @@ module vax_core #(
 	input       [1:0] img_mounted,
 	input             img_readonly,
 	input      [63:0] img_size,
+`ifdef VAX_UNIBUS
+	// the Unibus outside (VAX_UNIBUS): device registers and interrupts
+	// (see vax_uba.v); no DMA master there
+	output     [17:0] ub_a,
+	output      [1:0] ub_c,
+	output     [15:0] ub_d,
+	output            ub_msyn,
+	input             ub_ssyn,
+	input      [15:0] ub_rd,
+	input       [3:0] ub_br,
+	output      [3:0] ub_bg,
+	input             ub_intr,
+	input      [15:0] ub_vec,
+	output            ub_init,
+`endif
 	output            disk_active
 );
 
@@ -295,13 +310,22 @@ module vax_core #(
 		.img_readonly (img_readonly),
 		.img_size     (img_size),
 		.disk_active  (disk_active),
-		// the Unibus: no devices on it yet
+`ifdef VAX_UNIBUS
+		.ub_a     (ub_a),
+		.ub_c     (ub_c),
+		.ub_d     (ub_d),
+		.ub_msyn  (ub_msyn),
+		.ub_ssyn  (ub_ssyn),
+		.ub_rd    (ub_rd),
+`else
+		// the Unibus: no devices on it
 		.ub_a     (),
 		.ub_c     (),
 		.ub_d     (),
 		.ub_msyn  (),
 		.ub_ssyn  (1'b0),
 		.ub_rd    (16'd0),
+`endif
 		.dv_npr   (1'b0),
 		.dv_npg   (),
 		.dv_a     (18'd0),
@@ -310,11 +334,19 @@ module vax_core #(
 		.dv_msyn  (1'b0),
 		.dv_ssyn  (),
 		.dv_rd    (),
+`ifdef VAX_UNIBUS
+		.ub_br    (ub_br),
+		.ub_bg    (ub_bg),
+		.ub_intr  (ub_intr),
+		.ub_vec   (ub_vec),
+		.ub_init  (ub_init)
+`else
 		.ub_br    (4'd0),
 		.ub_bg    (),
 		.ub_intr  (1'b0),
 		.ub_vec   (16'd0),
 		.ub_init  ()
+`endif
 	);
 
 	/* memory: 32 MB at physical 0x00000000-0x01FFFFFF */

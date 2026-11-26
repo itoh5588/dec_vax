@@ -124,21 +124,20 @@ own distribution and the right to use it.
 
 ### Install VAX/VMS V4.6 in SIMH
 
-In SIMH's `vax8600`, with a running VMS on RP07 unit 0, a new RP07 on
-unit 1 and the tape on TU0:
-
-```
-set cpu 32m
-set rp0 rp07
-set rp1 rp07
-attach rp0 vms73-rp07.dsk
-attach rp1 vms46-rp07.dsk
-set tu enabled
-attach -r tu0 BB-BT05D-BE_VMS_4.6_87.tap
+```sh
+HELPER_PASSWORD=... VMS_PASSWORD=... \
+make vms46 TAPE=BB-BT05D-BE_VMS_4.6_87.tap.gz HELPER=vms73-rp07.dsk
 ```
 
-1. Boot the running VMS, log in, and restore REQUIRED, an image save set,
-   to the new disk:
+makes `vms/work/vms46-rp07.dsk` unattended, in about 3 minutes
+(`vms/mkvms46.py`; the whole console goes to `vms/work/mkvms46.log`).
+`HELPER` is an RP07 image with a VMS that boots in SIMH's `vax8600` and
+has BACKUP (OpenVMS VAX 7.3 does; it is copied, never changed), and
+`HELPER_PASSWORD` its SYSTEM password. `VMS_PASSWORD` becomes the new
+system's SYSTEM, SYSTEST and FIELD password. What it does:
+
+1. SIMH boots the helper from RP07 unit 0, with the new disk on unit 1
+   and the tape on TU0, and restores REQUIRED, an image save set:
 
    ```
    $ mount/foreign mta0:
@@ -146,17 +145,18 @@ attach -r tu0 BB-BT05D-BE_VMS_4.6_87.tap
    $ backup/image/verify mta0:required/save_set/rewind dra1:
    ```
 
-   (`%BACKUP-E-NOBADDATA` for a new disk image does no harm.) Shut down.
-2. `boot rp1`: VAX/VMS V4.6 starts and goes on with the install. Give the
-   date, `MTA0` for the drive holding the kit, no to the two cluster
-   questions; it restores LIBRARY and OPTIONAL from the tape, asks for
-   passwords for SYSTEM, SYSTEST and FIELD, runs AUTOGEN and reboots.
-3. Log in, and `@sys$system:shutdown`.
+   (`%BACKUP-E-NOBADDATA` for a new disk image does no harm.)
+2. `boot rp1`: VAX/VMS V4.6 starts and goes on with the install. It
+   answers the date, `MTA0` for the drive holding the kit, no to the two
+   cluster questions; the install restores LIBRARY and OPTIONAL from the
+   tape, takes the passwords, runs AUTOGEN and reboots.
+3. It logs in, shows the system, and shuts it down.
 
-Write `vms46-rp07.dsk` to the VMS card (check the device name first):
+A question it does not know stops it, with the question shown. Write the
+disk to the VMS card (check the device name first):
 
 ```sh
-sudo dd if=vms46-rp07.dsk of=/dev/sdX bs=1M conv=fsync
+sudo dd if=vms/work/vms46-rp07.dsk of=/dev/sdX bs=1M conv=fsync
 ```
 
 ### Install OpenVMS VAX V7.3 in SIMH
@@ -395,6 +395,7 @@ change the range in `sim/sim_b_top.v`).
 | `sim/` | the bench: `sim_b_top.v`, MIG and SD models, `tb_arty.cpp` |
 | `tools/` | `vaxcon.py` (console scripts), `mkvxld.py` (download frames), `mkbootrom.py`, `concast.py` (console recording), `mkvmsboot.py` (VMB boot frames), `vmscast.py` (VMS boot and recording) |
 | `43bsd/` | the 4.3BSD install: `make43.sh`, `mktap.py`, SIMH scripts |
+| `vms/` | the VAX/VMS V4.6 install: `mkvms46.py` (SIMH on a pty) |
 
 4.3BSD itself is not in this repository; `make disk` fetches it from
 [TUHS](https://www.tuhs.org/Archive/Distributions/UCB/4BSD/4.3BSD/) (the

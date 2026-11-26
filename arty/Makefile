@@ -14,6 +14,7 @@
 #   make flash     write it to the SPI flash (boots at power-up)
 #   make simb      Verilator bench: the same system, MIG and SD as models
 #   make simboot   the bench boots 4.3BSD from the disk image (slow)
+#   make vms46     VAX/VMS V4.6 on an RP07 image (vms/; TAPE= HELPER=)
 
 SHELL   = /bin/bash
 R       = ../rtl
@@ -31,7 +32,7 @@ CORE   = $(addprefix $(R)/,$(RVAX)) $(addprefix $(R)/mister/,$(MISTER))
 OURS   = rtl/arty_sys.v rtl/arty_mem_mig.v rtl/arty_sdcard.v rtl/arty_dz11.v
 SDSPI  = rtl/sdspi/slvtypes.vhd rtl/sdspi/sdspi_phy.vhd rtl/sdspi/sdspi_ctl.vhd
 
-.PHONY: disk bootrom mig bit program flash simb simboot clean
+.PHONY: disk bootrom mig bit program flash simb simboot vms46 clean
 
 # ---------------------------------------------------------------- 4.3BSD
 disk: $(DISK)
@@ -44,6 +45,19 @@ bootrom: build/bootrom.hex
 build/bootrom.hex: $(BOOTAOUT) tools/mkbootrom.py
 	mkdir -p build
 	python3 tools/mkbootrom.py $< -o $@
+
+# ---------------------------------------------------------------- VMS
+# VAX/VMS V4.6 from its distribution tape (vms/mkvms46.py): TAPE= the
+# tape image BB-BT05D-BE (.tap or .tap.gz), HELPER= an RP07 image with a
+# VMS that has BACKUP (it is copied); $$HELPER_PASSWORD (its SYSTEM) and
+# $$VMS_PASSWORD (the new system's) in the environment
+VMSWORK ?= vms/work
+vms46: $(VMSWORK)/vms46-rp07.dsk
+
+$(VMSWORK)/vms46-rp07.dsk:
+	@test -n "$(TAPE)" -a -n "$(HELPER)" || \
+	  { echo "make vms46 TAPE=<tape image> HELPER=<RP07 image with VMS>"; exit 1; }
+	python3 vms/mkvms46.py --tape $(TAPE) --helper $(HELPER) --work $(VMSWORK) -o $@
 
 # ---------------------------------------------------------------- Vivado
 mig: build/mig/ip/mig_ddr3/mig_ddr3.xci

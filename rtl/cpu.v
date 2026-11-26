@@ -322,6 +322,33 @@ module cpu(
 	wire		txcs_rdy, txcs_ie;
 	wire		rxcs_rdy, rxcs_ie;
 	wire [7:0]	rxdb;
+	/* the 8600's console subchannels (see "Write to console") */
+	reg  [3:0]	tx_en;			// TXCS<19:16>
+	initial tx_en = 4'b0001;
+	// halted, the console monitor (console.v) uses TXCS/TXDB/RXCS/RXDB:
+	// for it there is only the console terminal
+	wire		con_side = (state == `S_HALT);
+	function [3:0] tx_sel;
+		input [3:0] en;
+		tx_sel = en[3] ? 4'd3 : en[2] ? 4'd2 : en[1] ? 4'd1 :
+		    en[0] ? 4'd0 : 4'hF;
+	endfunction
+	wire [3:0]	tx_id = con_side ? 4'd0 : tx_sel(tx_en);
+	wire		tx_done = (tx_id == 4'd0) ? txcs_rdy : 1'b1;
+	wire		lc_rx = lc_done && !con_side;	// RXDB: the LC's byte
+	wire		tx_intreq_ct, rx_intreq_ct;	// constx, consrx
+	reg		tx_xint;		// TX: DONE for another line
+	reg		tx_xpend;		// such a line took TXDB
+	reg		tx_ack_l;		// tx_intack a clock ago
+	reg  [7:0]	lc_buf [0:3];		// the answer, sent from the top
+	reg  [2:0]	lc_n;			// bytes of it still to send
+	reg		lc_done;		// one of them is in RXDB
+	reg  [7:0]	lc_byte;
+	reg		lc_wtx;			// wrtxdb_lc a clock ago
+	reg		lc_intreq, lc_last;
+	reg		lc_rd;			// RXDB read while lc_done
+	wire		rdrxdb_any;
+	reg		rx_intack;
 
 	assign ipr_val_tmp = ipr_reg[ipr_regaddr[5:0]];
 
@@ -335,10 +362,12 @@ module cpu(
 		`IPR_ICCS: ipr_val =
 		    { iccs_err, 23'b0, iccs_int, iccs_ie, 5'b0, iccs_run };
 		`IPR_TODR: ipr_val = todr;
-		`IPR_TXCS: ipr_val = { 24'h0, txcs_rdy, txcs_ie, 6'b0 };
-//		`IPR_TXCS: ipr_val = { 24'h000100, txcs_rdy, txcs_ie, 6'b0 };
-		`IPR_RXCS: ipr_val = { 24'b0, rxcs_rdy, rxcs_ie, 6'b0 };
-		`IPR_RXDB: ipr_val = { 24'b0, rxdb };
+		/* the 8600's console subchannels (see "Write to console") */
+		`IPR_TXCS: ipr_val = { 12'h0, tx_en, 4'h0, tx_id, tx_done,
+		    txcs_ie, 6'b0 };
+		`IPR_RXCS: ipr_val = { 24'b0, rxcs_rdy | lc_rx, rxcs_ie, 6'b0 };
+		`IPR_RXDB: ipr_val = lc_rx ? { 12'h0, 4'b1101, 4'h0, 4'd3, lc_byte } :
+		    { 12'h0, 4'b1101, 8'h0, rxdb };
 		`IPR_PAMACC: ipr_val = { 2'b0, pamloc, 15'b0, PAMM_I };
 		`IPR_PAMLOC: ipr_val = { 2'b0, pamloc, 20'b0 };
 		`IPR_CSWP: ipr_val = { 28'b0, cswp };
@@ -1039,6 +1068,8 @@ initial debug = 0;
 	wire		intrq18, intrq14;
 	wire		tx_intreq, rx_intreq;
 
+	assign tx_intreq = tx_intreq_ct | tx_xint;
+	assign rx_intreq = rx_intreq_ct | lc_intreq;
 	assign intrq14 = tx_intreq | rx_intreq;
 
 	/*
@@ -1165,16 +1196,141 @@ initial debug = 0;
 	assign wrtxcs = (ipr_write || state == `WRITEIPR) &&
 	    (ipr_regaddr == `IPR_TXCS); // RW
 
+	/*
+	 * The VAX 8600's console subchannels, as SIMH's vax860_stddev.c has
+	 * them. TXCS<19:16> enables the lines (written when TXCS<15>, the
+	 * write mask, is set): 0 the console terminal, 1 remote services,
+	 * 2 the environmental monitor, 3 the logical console. TXCS<11:8>
+	 * says which line TXDB goes to: the enabled one first in the order
+	 * 3, 2, 1, 0 (F: none). Only the console terminal is a real line
+	 * (constx); the others take a character at once. The logical
+	 * console answers its functions through RXDB with RXDB<11:8> = 3:
+	 * 12 microcode version, 13 memory array configuration, 30 snapshot
+	 * status, 70 cancel; 02 (reboot) goes out of the UART too, as
+	 * 4.3BSD's TXDB_BOOT does, for the board's reboot. VMS's SYSBOOT
+	 * asks for the microcode version this way and waits for line 3.
+	 */
+	wire       wrtxdb_ct = wrtxdb && (tx_id == 4'd0 ||
+	    (tx_id == 4'd3 && ipr_regwdata[7:0] == 8'h02));
+	wire       wrtxdb_lc = wrtxdb && tx_id == 4'd3;
+
+	always @(posedge clk)
+		if (rst)
+			tx_en <= 4'b0001;
+		else if (wrtxcs && !con_side && ipr_regwdata[15])
+			tx_en <= ipr_regwdata[19:16];
+
+	/*
+	 * Transmit interrupts besides constx's (the terminal ready again), as
+	 * SIMH's txcs_wr/tto_update_int/tto_svc: a TXCS write with IE set and
+	 * DONE set after it (with the write mask: DONE of the newly selected
+	 * line), and a character taken by a line other than the terminal
+	 * (done at once). VMS's console driver waits for these when it
+	 * changes the enables.
+	 */
+	wire [3:0] tx_nid = tx_sel(ipr_regwdata[15] ? ipr_regwdata[19:16] :
+	    tx_en);
+	wire       tx_ndone = (tx_nid == 4'd0) ? txcs_rdy : 1'b1;
+	initial begin
+		tx_xint  = 1'b0;
+		tx_xpend = 1'b0;
+		tx_ack_l = 1'b0;
+	end
+	always @(posedge clk) begin
+		tx_ack_l <= tx_intack;
+		if (rst) begin
+			tx_xint  <= 1'b0;
+			tx_xpend <= 1'b0;
+		end else if (wrtxcs && !con_side) begin
+			tx_xint <= ipr_regwdata[6] && tx_ndone;
+		end else if (wrtxdb && !con_side) begin
+			tx_xint  <= 1'b0;
+			tx_xpend <= tx_id != 4'd0;
+		end else if (tx_xpend) begin
+			tx_xpend <= 1'b0;
+			if (txcs_ie)
+				tx_xint <= 1'b1;
+		end else if (tx_intack && !tx_ack_l)
+			tx_xint <= 1'b0;
+	end
+
+	initial begin
+		lc_n = 3'd0;
+		lc_done = 1'b0;
+		lc_wtx = 1'b0;
+		lc_intreq = 1'b0;
+		lc_last = 1'b0;
+	end
+
+	always @(posedge clk) begin
+		lc_wtx <= wrtxdb_lc;
+		if (rst) begin
+			lc_n    <= 3'd0;
+			lc_done <= 1'b0;
+		end else if (wrtxdb_lc && !lc_wtx) begin
+			if (ipr_regwdata[7:0] == 8'h70) begin	// cancel all
+				lc_n    <= 3'd0;
+				lc_done <= 1'b0;
+			end else if (lc_n == 3'd0 && !lc_done)
+				case (ipr_regwdata[7:0])
+				8'h12: begin			// microcode version
+					lc_buf[2] <= 8'h12;
+					lc_buf[1] <= 8'h01;
+					lc_buf[0] <= 8'h00;
+					lc_n      <= 3'd3;
+				end
+				8'h13: begin			// array configuration:
+					lc_buf[3] <= 8'h13;	// 32 MB as two 16 MB
+					lc_buf[2] <= 8'h02;	// boards (as SIMH)
+					lc_buf[1] <= 8'h05;
+					lc_buf[0] <= 8'h00;
+					lc_n      <= 3'd4;
+				end
+				8'h30: begin			// snapshot status
+					lc_buf[1] <= 8'h30;
+					lc_buf[0] <= 8'h00;	// both invalid
+					lc_n      <= 3'd2;
+				end
+				default: ;
+				endcase
+		end else if (lc_done) begin
+			// taken: when the MFPR from RXDB is over
+			if (!rdrxdb_any && lc_rd)
+				lc_done <= 1'b0;
+		end else if (lc_n != 3'd0 && !rdrxdb_any) begin
+			lc_byte <= lc_buf[lc_n - 3'd1];
+			lc_n    <= lc_n - 3'd1;
+			lc_done <= 1'b1;
+		end
+	end
+
+	initial lc_rd = 1'b0;
+	always @(posedge clk)
+		if (rst || !lc_done)
+			lc_rd <= 1'b0;
+		else if (rdrxdb_any && !con_side)
+			lc_rd <= 1'b1;
+
+	always @(posedge clk) begin
+		if (rst)
+			lc_intreq <= 1'b0;
+		else if (lc_done && rxcs_ie && !lc_last)
+			lc_intreq <= 1'b1;
+		else if (rx_intack || !lc_done)
+			lc_intreq <= 1'b0;
+		lc_last <= lc_done && rxcs_ie;
+	end
+
 	constx constx(
 		.clk(clk),
 		.rst(rst),
 
 		.iprdb(ipr_regwdata[7:0]),
 		.wrtxcs(wrtxcs),
-		.wrtxdb(wrtxdb),
+		.wrtxdb(wrtxdb_ct),
 
 		.intack(tx_intack),
-		.intreq(tx_intreq),
+		.intreq(tx_intreq_ct),
 
 		.rdy(txcs_rdy),
 		.ie(txcs_ie),
@@ -1186,11 +1342,12 @@ initial debug = 0;
 	 * Read from console.
 	 */
 	wire wrrxcs, rdrxdb;
-	reg rx_intack;
 	assign wrrxcs = (ipr_write || state == `WRITEIPR) &&
 	    (ipr_regaddr == `IPR_RXCS); // RW
-	assign rdrxdb = !(ipr_write || state == `WRITEIPR) &&
+	assign rdrxdb_any = !(ipr_write || state == `WRITEIPR) &&
 	    (ipr_regaddr == `IPR_RXDB); // RO
+	// a logical console byte in RXDB: the terminal's character waits
+	assign rdrxdb = rdrxdb_any && !lc_rx;
 	consrx consrx(
 		.clk(clk),
 		.rst(rst),
@@ -1200,7 +1357,7 @@ initial debug = 0;
 		.rdrxdb(rdrxdb),
 
 		.intack(rx_intack),
-		.intreq(rx_intreq),
+		.intreq(rx_intreq_ct),
 
 		.ie(rxcs_ie),		// read interrupt enable
 		.rdy(rxcs_rdy),		// read ready

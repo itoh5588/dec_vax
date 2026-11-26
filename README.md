@@ -8,10 +8,10 @@
 > microSD card, and boots the unmodified 4.3BSD GENERIC kernel to
 > multi-user mode at power-up. 4.3BSD takes it for a VAX 8600, and so does
 > VMS: VAX/VMS V4.6 (1987) boots from another card in 33 seconds and takes
-> logins on the console and the DZ11 line; OpenVMS VAX V7.3 boots too. It
-> is not a copy of DEC's 8600 hardware, and much slower: about 1.1 million
-> instructions a second at 40 MHz on a simple loop (`software/bench.bin`),
-> not comparable with DEC's VUP ratings.
+> logins on the console and the DZ11 line. It is not a copy of DEC's 8600
+> hardware, and much slower: about 1.1 million instructions a second at 40
+> MHz on a simple loop (`software/bench.bin`), not comparable with DEC's
+> VUP ratings.
 > See [arty/README.md](arty/README.md).
 >
 > <img src="arty/docs/arty-s7.jpg" alt="The Arty S7-50 with the Pmod MicroSD on JD and a USB-UART on JC" width="400">

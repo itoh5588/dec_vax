@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: BSD-2-Clause
 # Copyright (c) 2026 Akio Itoh
-"""mkvmsboot.py - a download frame that boots OpenVMS through VMB.
+"""mkvmsboot.py - a download frame that boots VMS through VMB.
 
     mkvmsboot.py vmb.exe [-u UNIT] [--todr now|none|HEX] -o vmsboot.vxld
 

@@ -3,8 +3,8 @@
 This directory puts the r-vax core (`../rtl`, the MiSTer branch) on a
 Digilent Arty S7-50 and boots **4.3BSD** (June 1986, the GENERIC kernel,
 unmodified) to multi-user mode from a microSD card. It also boots
-**VAX/VMS V4.6** (1987), with logins on the console and the DZ11 line,
-and **OpenVMS VAX V7.3**, each from its own card (see [VMS](#vms)).
+**VAX/VMS V4.6** (1987) from its own card, with logins on the console and
+the DZ11 line (see [VMS](#vms)).
 
 r-vax is a VAX written in Verilog. The MiSTer branch implements the VAX
 8600 as software sees it: its system ID, internal registers, memory
@@ -84,14 +84,8 @@ VAX/VMS  KG   on node  26-NOV-2026 23:09:57.16   Uptime    0 00:35:02
 The recording (`docs/boot-vms46.cast`, real times; pauses over 2 s cut
 short in the GIF) goes from VMB to `show device d`, 40 s.
 
-**OpenVMS VAX V7.3** (2001) boots as well, in about 160 s, and takes the
-board for a VAX 8600 (`show cpu`: "a VAX 8600"; `docs/boot-vms73.gif`,
-recorded before the TODR change below, so it still asks for the date).
-Without license PAKs only the console can log in; on TTA0 it reads and
-writes (`open/write`, `read`).
-
-Two changes to the core made VMS boot; both are tested against SIMH's
-`vax8600` in `tests/mmu`:
+Two changes to the core, found while bringing up a later VMS, are in the
+bitstream; both are tested against SIMH's `vax8600` in `tests/mmu`:
 
 - **The 8600's console subchannels** (`rtl/cpu.v`). TXCS<19:16> enables
   the lines, TXCS<11:8> names the line TXDB goes to, and the logical
@@ -115,18 +109,17 @@ own distribution and the right to use it.
   stays as it is.
 - SIMH's `vax8600` to install VMS, and VMB.EXE, the VAX boot program,
   from open-simh: `VAX/vmb.exe` in its source tree.
-- For V4.6: the distribution tape BB-BT05D-BE as a SIMH tape image (four
-  save sets: VMS046.A, REQUIRED, LIBRARY, OPTIONAL), and a BACKUP that can
-  restore an image save set to a disk (the 8600's standalone BACKUP came
-  on the console's own medium, not on this tape; we used OpenVMS 7.3 in
-  SIMH).
-- For V7.3: the OpenVMS VAX V7.3 CD image.
+- The VAX/VMS V4.6 distribution tape BB-BT05D-BE as a SIMH tape image
+  (four save sets: VMS046.A, REQUIRED, LIBRARY, OPTIONAL), and a BACKUP
+  that can restore an image save set to a disk: the 8600's standalone
+  BACKUP came on the console's own medium, not on this tape, so the
+  install borrows a running VMS in SIMH (we used OpenVMS VAX 7.3).
 
 ### Install VAX/VMS V4.6 in SIMH
 
 ```sh
 HELPER_PASSWORD=... VMS_PASSWORD=... \
-make vms46 TAPE=BB-BT05D-BE_VMS_4.6_87.tap.gz HELPER=vms73-rp07.dsk
+make vms46 TAPE=BB-BT05D-BE_VMS_4.6_87.tap.gz HELPER=helper-rp07.dsk
 ```
 
 makes `vms/work/vms46-rp07.dsk` unattended, in about 3 minutes
@@ -159,19 +152,6 @@ disk to the VMS card (check the device name first):
 sudo dd if=vms/work/vms46-rp07.dsk of=/dev/sdX bs=1M conv=fsync
 ```
 
-### Install OpenVMS VAX V7.3 in SIMH
-
-The same, with the CD on a UDA50 (`set rq0 cdrom`, `attach -r rq0
-OpenVMSVAX073OS.iso`, the other RQ units disabled) and one RP07:
-
-1. `boot rq0`: standalone BACKUP from the CD. Restore the system to the
-   RP07: `backup/image/verify dua0:vms073.b/save_set dra0:`
-2. `boot rp0`: the install procedure starts. Give a node name and an
-   SCSSYSTEMID, and the time zone. This image was made with the libraries,
-   the options, MSGHLP and DECnet Phase IV, without DECwindows, DECnet-Plus
-   and the Management Station, and no PAKs.
-3. Boot once more from rp0 in SIMH, log in, and `@sys$system:shutdown`.
-
 ### Boot
 
 The boot ROM holds 4.3BSD's `/boot`, so VMS is booted over the console
@@ -192,11 +172,11 @@ VMB's memory test (`tools/mkvmsboot.py`). The system disk is then DRA0.
    hundredths of a second since 1 January, local time), as SIMH's 8600
    does. The board's TODR has no battery and starts in July at every
    configuration, earlier than the time VMS saved at its last shutdown;
-   without this VMS asks for the date (checked on the board with both
-   versions: no prompt, and `show time` agreed with the host). `-w`/`-k`
-   pairs type the login. VMS shows `Username:` only after a key, so wait
-   for the end of STARTUP (with V7.3 the audit server's message during
-   STARTUP has a `Username:` too):
+   without this VMS asks for the date (checked on the board: no prompt,
+   and `show time` agreed with the host). `-w`/`-k` pairs type the login.
+   VMS shows `Username:` only after a key, so wait for the end of STARTUP
+   (on later versions the audit server's message during STARTUP has a
+   `Username:` too):
 
    ```sh
    python3 tools/vmscast.py --vmb vmb.exe -o vms.cast \
@@ -213,10 +193,10 @@ VMB's memory test (`tools/mkvmsboot.py`). The system disk is then DRA0.
    block at a time, a few minutes with nothing on the console; wait for
    `SYSTEM SHUTDOWN COMPLETE`.
 
-Not done yet: booting VMS from the ROM. Now and then OpenVMS 7.3 halts
-early in its boot (halt code 5, or 4, right after `%WBM-I-WBMINFO`): a
-machine check while an interrupt is being initiated, under study; the
-next boot goes through.
+Not done yet: booting VMS from the ROM. A later VMS now and then halted
+early in its boot (halt code 5, a machine check while an interrupt is
+being initiated); that is under study, and was not seen in the V4.6 boots
+so far.
 
 ## The system
 
@@ -318,7 +298,7 @@ These steps were checked end to end on the board: a disk from `make disk`
 
 ## The bitstream
 
-As built by `make bit` from the sources with the OpenVMS changes (Vivado
+As built by `make bit` from the sources with the VMS changes (Vivado
 2025.2, non-project flow, `tcl/build.tcl`):
 
 | | |
@@ -365,13 +345,12 @@ clocks (11 minutes) reach `Changing root device to hp0a`, and the bench
 stops with `TIMEOUT`.
 
 VMS runs on the bench too, without the boot ROM, at about 800,000 clocks
-a second: around 45 minutes to SYSBOOT's messages, 1.5 hours into
-STARTUP:
+a second, some 50 times slower than the board:
 
 ```sh
 make simb BOOTROM=0                   # build/simb0
 python3 tools/mkvmsboot.py vmb.exe -o build/vmsboot.vxld
-cd build && ln -sfn ../../rtl rtl && SDIMG=/path/to/vms73-rp07.dsk \
+cd build && ln -sfn ../../rtl rtl && SDIMG=/path/to/vms46-rp07.dsk \
   simb0/Vsim_b_top vmsboot.vxld 12000000000
 ```
 

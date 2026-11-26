@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: BSD-2-Clause
 # Copyright (c) 2026 Akio Itoh
-"""vmscast.py - boot OpenVMS on the Arty S7 and record the console as an
+"""vmscast.py - boot VMS on the Arty S7 and record the console as an
 asciinema v2 cast, no pyserial.
 
     vmscast.py [-p /dev/ttyUSB1] (-f vmsboot.vxld | --vmb vmb.exe [-u UNIT])
@@ -79,7 +79,7 @@ def main():
     ap.add_argument('-o', '--output', required=True)
     ap.add_argument('-a', '--after', type=float, default=3.0)
     ap.add_argument('-t', '--silence', type=float, default=300.0)
-    ap.add_argument('--title', default='r-vax on the Arty S7: OpenVMS VAX V7.3 boot')
+    ap.add_argument('--title', default='r-vax on the Arty S7: VMS boot')
     ap.add_argument('--cols', type=int, default=80)
     ap.add_argument('--rows', type=int, default=24)
     a = ap.parse_args()

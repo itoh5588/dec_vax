@@ -1,10 +1,10 @@
-# r-vax on the Digilent Arty S7-50: 4.3BSD and OpenVMS
+# r-vax on the Digilent Arty S7-50: 4.3BSD and VMS
 
 This directory puts the r-vax core (`../rtl`, the MiSTer branch) on a
 Digilent Arty S7-50 and boots **4.3BSD** (June 1986, the GENERIC kernel,
 unmodified) to multi-user mode from a microSD card. It also boots
-**OpenVMS VAX V7.3** to its login, from its own card (see
-[OpenVMS VAX V7.3](#openvms-vax-v73)).
+**VAX/VMS V4.6** (1987), with logins on the console and the DZ11 line,
+and **OpenVMS VAX V7.3**, each from its own card (see [VMS](#vms)).
 
 r-vax is a VAX written in Verilog. The MiSTer branch implements the VAX
 8600 as software sees it: its system ID, internal registers, memory
@@ -58,31 +58,39 @@ SD card, and the kernel checks the file systems and runs `/etc/rc`: about
 two minutes to `login:`. `reboot` boots again; `shutdown -h now` halts in
 the console monitor.
 
-## OpenVMS VAX V7.3
+## VMS
 
-![OpenVMS VAX V7.3 booting on the Arty S7: VMB to show system](docs/boot-vms73.gif)
+![VAX/VMS V4.6 booting on the Arty S7: VMB to show device](docs/boot-vms46.gif)
 
-OpenVMS VAX V7.3 (2001) boots on the same bitstream: VMB, SYSBOOT, the
-STARTUP procedure, and the SYSTEM login on the console (OPA0), about 160 s
-from sending VMB to `Username:`. It takes the board for a VAX 8600:
+**VAX/VMS V4.6** (June 1987) boots on the same bitstream from its own card:
+VMB, SYSBOOT, STARTUP, and the login, 33 seconds from sending VMB to the
+end of STARTUP. VMS V4 has no license management, so it takes logins on
+the DZ11 line too: SYSTEM logged in on the console (OPA0) and on `tty00`'s
+Pmod JC terminal (TTA0) at the same time:
 
 ```
-$ show cpu
-
-VMS73, a VAX 8600
-Multiprocessing is DISABLED. Uniprocessing synchronization image loaded.
-$ show memory/physical
-              System Memory Resources on 26-NOV-2026 05:23:24.66
-
-Physical Memory Usage (pages):     Total        Free      In Use    Modified
-  Main Memory (32.00Mb)            65536       48942       16485         109
+$ show system
+VAX/VMS  KG   on node  26-NOV-2026 23:09:57.16   Uptime    0 00:35:02
+  Pid    Process Name    State  Pri      I/O       CPU       Page flts Ph.Mem
+00000100 NULL            COM      0        0   0 00:34:44.91         0      0
+00000101 SWAPPER         HIB     16        0   0 00:00:00.14         0      0
+00000104 ERRFMT          HIB      8       29   0 00:00:00.23        70     98
+00000105 OPCOM           LEF      8       44   0 00:00:00.40       173     53
+00000106 JOB_CONTROL     HIB      8       20   0 00:00:00.23        83    213
+00000107 SYSTEM          CUR      4      129   0 00:00:02.16       807    275
+00000109 _TTA0:          LEF      7       56   0 00:00:00.92       320    238
 ```
 
-The recording (`docs/boot-vms73.cast`, real times; pauses over 2 s cut
-short in the GIF) goes from VMB to `show system`. It was made before the
-TODR change below, so it still asks for the date.
+The recording (`docs/boot-vms46.cast`, real times; pauses over 2 s cut
+short in the GIF) goes from VMB to `show device d`, 40 s.
 
-Two changes to the core made this work; both are tested against SIMH's
+**OpenVMS VAX V7.3** (2001) boots as well, in about 160 s, and takes the
+board for a VAX 8600 (`show cpu`: "a VAX 8600"; `docs/boot-vms73.gif`,
+recorded before the TODR change below, so it still asks for the date).
+Without license PAKs only the console can log in; on TTA0 it reads and
+writes (`open/write`, `read`).
+
+Two changes to the core made VMS boot; both are tested against SIMH's
 `vax8600` in `tests/mmu`:
 
 - **The 8600's console subchannels** (`rtl/cpu.v`). TXCS<19:16> enables
@@ -98,33 +106,63 @@ Two changes to the core made this work; both are tested against SIMH's
   (t69, t72; also sent upstream as
   [Maverick-Shark/dec_vax#2](https://github.com/Maverick-Shark/dec_vax/pull/2))
 
-### What you need for OpenVMS
+### What you need for VMS
 
-OpenVMS is not in this repository and is not downloaded by it: you need
-your own OpenVMS VAX V7.3 distribution (the CD image) and the right to use
-it. Without license PAKs VMS still boots, and SYSTEM can log in on the
-console (`%LOGIN-S-LOGOPRCON, login allowed from OPA0:`).
+VMS is not in this repository and is not downloaded by it: you need your
+own distribution and the right to use it.
 
 - A second microSD card (1 GB or more) for the VMS disk; the 4.3BSD card
   stays as it is.
 - SIMH's `vax8600` to install VMS, and VMB.EXE, the VAX boot program,
   from open-simh: `VAX/vmb.exe` in its source tree.
+- For V4.6: the distribution tape BB-BT05D-BE as a SIMH tape image (four
+  save sets: VMS046.A, REQUIRED, LIBRARY, OPTIONAL), and a BACKUP that can
+  restore an image save set to a disk (the 8600's standalone BACKUP came
+  on the console's own medium, not on this tape; we used OpenVMS 7.3 in
+  SIMH).
+- For V7.3: the OpenVMS VAX V7.3 CD image.
 
-### Install in SIMH
+### Install VAX/VMS V4.6 in SIMH
 
-Install VMS in SIMH's `vax8600` on an RP07, as the board has it: 32 MB,
-RP07 unit 0 (DRA0), the CD on a UDA50:
+In SIMH's `vax8600`, with a running VMS on RP07 unit 0, a new RP07 on
+unit 1 and the tape on TU0:
 
 ```
 set cpu 32m
 set rp0 rp07
+set rp1 rp07
 attach rp0 vms73-rp07.dsk
-set rq0 cdrom
-attach -r rq0 OpenVMSVAX073OS.iso
-set rq1 dis
-set rq2 dis
-set rq3 dis
+attach rp1 vms46-rp07.dsk
+set tu enabled
+attach -r tu0 BB-BT05D-BE_VMS_4.6_87.tap
 ```
+
+1. Boot the running VMS, log in, and restore REQUIRED, an image save set,
+   to the new disk:
+
+   ```
+   $ mount/foreign mta0:
+   $ mount/foreign dra1:
+   $ backup/image/verify mta0:required/save_set/rewind dra1:
+   ```
+
+   (`%BACKUP-E-NOBADDATA` for a new disk image does no harm.) Shut down.
+2. `boot rp1`: VAX/VMS V4.6 starts and goes on with the install. Give the
+   date, `MTA0` for the drive holding the kit, no to the two cluster
+   questions; it restores LIBRARY and OPTIONAL from the tape, asks for
+   passwords for SYSTEM, SYSTEST and FIELD, runs AUTOGEN and reboots.
+3. Log in, and `@sys$system:shutdown`.
+
+Write `vms46-rp07.dsk` to the VMS card (check the device name first):
+
+```sh
+sudo dd if=vms46-rp07.dsk of=/dev/sdX bs=1M conv=fsync
+```
+
+### Install OpenVMS VAX V7.3 in SIMH
+
+The same, with the CD on a UDA50 (`set rq0 cdrom`, `attach -r rq0
+OpenVMSVAX073OS.iso`, the other RQ units disabled) and one RP07:
 
 1. `boot rq0`: standalone BACKUP from the CD. Restore the system to the
    RP07: `backup/image/verify dua0:vms073.b/save_set dra0:`
@@ -134,18 +172,12 @@ set rq3 dis
    and the Management Station, and no PAKs.
 3. Boot once more from rp0 in SIMH, log in, and `@sys$system:shutdown`.
 
-Write the image to the VMS card (check the device name first):
-
-```sh
-sudo dd if=vms73-rp07.dsk of=/dev/sdX bs=1M conv=fsync
-```
-
 ### Boot
 
 The boot ROM holds 4.3BSD's `/boot`, so VMS is booted over the console
 UART, as the 8600's console would: VMB at 200 and a few instructions at
 18000 that set R0-R5 for an RP07 on the RH780 at TR 8, unit 0, and skip
-VMB's memory test (`tools/mkvmsboot.py`).
+VMB's memory test (`tools/mkvmsboot.py`). The system disk is then DRA0.
 
 1. Put the VMS card in the Pmod MicroSD, turn **SW0 on** (no boot from the
    ROM), and press RESET (or load the bitstream).
@@ -160,25 +192,31 @@ VMB's memory test (`tools/mkvmsboot.py`).
    hundredths of a second since 1 January, local time), as SIMH's 8600
    does. The board's TODR has no battery and starts in July at every
    configuration, earlier than the time VMS saved at its last shutdown;
-   without this VMS asks for the date (checked on the board: no prompt,
-   and `show time` agreed with the host). `-w`/`-k` pairs type the login.
-   VMS shows `Username:` only after a key, and the audit server's message
-   during STARTUP has a `Username:` too, so wait for the end of STARTUP:
+   without this VMS asks for the date (checked on the board with both
+   versions: no prompt, and `show time` agreed with the host). `-w`/`-k`
+   pairs type the login. VMS shows `Username:` only after a key, so wait
+   for the end of STARTUP (with V7.3 the audit server's message during
+   STARTUP has a `Username:` too):
 
    ```sh
    python3 tools/vmscast.py --vmb vmb.exe -o vms.cast \
-     -w "job terminated" -k '\r' -w "Welcome to OpenVMS" -k '' \
+     -w "job terminated" -k '\r' \
      -w "Username: " -k 'SYSTEM\r' -w "Password: " -k 'password\r'
    ```
 
    Or make a frame with
    `tools/mkvmsboot.py vmb.exe -o vmsboot.vxld` and send it with
    `tools/vaxcon.py -f vmsboot.vxld`, then use a terminal program.
-3. Before turning the power off, `@sys$system:shutdown`.
+3. The DZ11 line (Pmod JC) is TTA0: 9600, 8 bits, no parity under VMS.
+4. Before turning the power off, `@sys$system:shutdown`. V4.6's last step
+   writes a crash dump of the 32 MB to SYSDUMP.DMP through the SD card a
+   block at a time, a few minutes with nothing on the console; wait for
+   `SYSTEM SHUTDOWN COMPLETE`.
 
-Not done yet: booting VMS from the ROM, the DZ11 line under VMS. Once in
-several boots, VMS halted early (halt code 5, at `%WBM-I-WBMINFO`); the
-next boot went through.
+Not done yet: booting VMS from the ROM. Now and then OpenVMS 7.3 halts
+early in its boot (halt code 5, or 4, right after `%WBM-I-WBMINFO`): a
+machine check while an interrupt is being initiated, under study; the
+next boot goes through.
 
 ## The system
 
@@ -360,7 +398,7 @@ change the range in `sim/sim_b_top.v`).
 
 4.3BSD itself is not in this repository; `make disk` fetches it from
 [TUHS](https://www.tuhs.org/Archive/Distributions/UCB/4BSD/4.3BSD/) (the
-Caldera license for ancient UNIX). Nor is OpenVMS, or VMB.EXE.
+Caldera license for ancient UNIX). Nor is VMS, or VMB.EXE.
 
 ## Acknowledgements
 
@@ -373,7 +411,7 @@ Caldera license for ancient UNIX). Nor is OpenVMS, or VMB.EXE.
 - **The Unix Heritage Society (TUHS)** and Warren Toomey, for keeping the
   4.3BSD distribution, and Caldera for its license for ancient UNIX.
 - **SIMH** (Bob Supnik and the open-simh contributors): its `vax8600`
-  installs 4.3BSD and OpenVMS here, and served as the reference for the
+  installs 4.3BSD and VMS here, and served as the reference for the
   core's tests; its `vax860_stddev.c` showed the 8600's console
   subchannels and TODR, and its `vmb.exe` boots VMS.
 - The Computer History Wiki (gunkies.org), "Installing 4.3 BSD on SIMH",

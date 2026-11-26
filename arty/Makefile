@@ -78,15 +78,26 @@ flash: build/vivado/arty_top_b.bit
 SIM_UART_CLKS = 24
 SIMB_SRC = $(CORE) $(OURS) sim/mig_ui_model.v sim/sdspi_model.v sim/sim_b_top.v
 
-simb: build/simb/Vsim_b_top
+# make simb BOOTROM=0: no boot ROM, in build/simb0 (for a download frame
+# such as VMB's, tools/mkvmsboot.py); SIM_DEFS adds defines (-DVAX_WATCH)
+ifeq ($(BOOTROM),0)
+SIMB_DIR = build/simb0
+SIMB_ROM =
+SIMB_DEP =
+else
+SIMB_DIR = build/simb
+SIMB_ROM = -DARTY_BOOTROM -DARTY_BOOTROM_HEX='"$(CURDIR)/build/bootrom.hex"'
+SIMB_DEP = build/bootrom.hex
+endif
 
-build/simb/Vsim_b_top: $(SIMB_SRC) sim/tb_arty.cpp build/bootrom.hex
+simb: $(SIMB_DIR)/Vsim_b_top
+
+$(SIMB_DIR)/Vsim_b_top: $(SIMB_SRC) sim/tb_arty.cpp $(SIMB_DEP)
 	verilator --cc --exe --build -j 4 -O2 -Wno-fatal -Wno-WIDTH -Wno-TIMESCALEMOD \
 	  -DMISTER -DCLKPERBIT=16 -DCACHEIDX=10 -DCLK_MHZ=$(CLK_MHZ) -DVAX_EXT_MEM \
-	  -DARTY_MEM_KB=32768 -DARTY_SD -DVAX_UNIBUS -DARTY_DZ \
-	  -DARTY_BOOTROM -DARTY_BOOTROM_HEX='"$(CURDIR)/build/bootrom.hex"' \
+	  -DARTY_MEM_KB=32768 -DARTY_SD -DVAX_UNIBUS -DARTY_DZ $(SIMB_ROM) $(SIM_DEFS) \
 	  -GCLK_HZ=$(CLK_MHZ)000000 -GUART_CLKS=$(SIM_UART_CLKS) \
-	  -I$(R) --top-module sim_b_top -Mdir build/simb $(SIMB_SRC) $(CURDIR)/sim/tb_arty.cpp \
+	  -I$(R) --top-module sim_b_top -Mdir $(SIMB_DIR) $(SIMB_SRC) $(CURDIR)/sim/tb_arty.cpp \
 	  -CFLAGS "-O1 -w -DUART_CLKS=$(SIM_UART_CLKS) -DTWO_CLOCKS -DSD_MODEL -DDZ_LINE -DTOPCLASS=Vsim_b_top -DTOPHDR='\"Vsim_b_top.h\"'" \
 	  -o Vsim_b_top
 

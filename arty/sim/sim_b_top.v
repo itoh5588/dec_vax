@@ -127,6 +127,24 @@ module sim_b_top #(
 		.app_rd_data_valid(app_rd_data_valid)
 	);
 
+`ifdef VAX_WATCH
+	// debugging (make simb SIM_DEFS=-DVAX_WATCH): every CPU write to the
+	// virtual longwords 7FFE2680-7FFE269F (the P1 queue headers VMS's
+	// STARTUP hung on), with the clock, the instruction's PC, the data and
+	// PCBB (the process)
+	reg [63:0] w_clk;
+	initial w_clk = 64'd0;
+	always @(posedge sys.clk) begin
+		w_clk <= w_clk + 64'd1;
+		if (sys.core.cpu_stb && sys.core.cpu_write && sys.core.cpu_ack &&
+		    sys.core.cpu_addr[31:5] == 27'h3FFF134)
+			$display("W %0d pc %08x va %08x d %08x sz %0d pcbb %08x",
+			    w_clk, sys.core.cpu.oldpc, sys.core.cpu_addr,
+			    sys.core.cpu_wdata, sys.core.cpu_size,
+			    sys.core.cpu.ipr_reg[16]);
+	end
+`endif
+
 endmodule
 
 `default_nettype wire

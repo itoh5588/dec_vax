@@ -1,8 +1,10 @@
-# r-vax on the Digilent Arty S7-50: 4.3BSD
+# r-vax on the Digilent Arty S7-50: 4.3BSD and OpenVMS
 
 This directory puts the r-vax core (`../rtl`, the MiSTer branch) on a
 Digilent Arty S7-50 and boots **4.3BSD** (June 1986, the GENERIC kernel,
-unmodified) to multi-user mode from a microSD card.
+unmodified) to multi-user mode from a microSD card. It also boots
+**OpenVMS VAX V7.3** to its login, from its own card (see
+[OpenVMS VAX V7.3](#openvms-vax-v73)).
 
 r-vax is a VAX written in Verilog. The MiSTer branch implements the VAX
 8600 as software sees it: its system ID, internal registers, memory
@@ -55,6 +57,128 @@ At power-up the FPGA loads from its SPI flash, the boot ROM puts 4.3BSD's
 SD card, and the kernel checks the file systems and runs `/etc/rc`: about
 two minutes to `login:`. `reboot` boots again; `shutdown -h now` halts in
 the console monitor.
+
+## OpenVMS VAX V7.3
+
+![OpenVMS VAX V7.3 booting on the Arty S7: VMB to show system](docs/boot-vms73.gif)
+
+OpenVMS VAX V7.3 (2001) boots on the same bitstream: VMB, SYSBOOT, the
+STARTUP procedure, and the SYSTEM login on the console (OPA0), about 160 s
+from sending VMB to `Username:`. It takes the board for a VAX 8600:
+
+```
+$ show cpu
+
+VMS73, a VAX 8600
+Multiprocessing is DISABLED. Uniprocessing synchronization image loaded.
+$ show memory/physical
+              System Memory Resources on 26-NOV-2026 05:23:24.66
+
+Physical Memory Usage (pages):     Total        Free      In Use    Modified
+  Main Memory (32.00Mb)            65536       48942       16485         109
+```
+
+The recording (`docs/boot-vms73.cast`, real times; pauses over 2 s cut
+short in the GIF) goes from VMB to `show system`. It was made before the
+TODR change below, so it still asks for the date.
+
+Two changes to the core made this work; both are tested against SIMH's
+`vax8600` in `tests/mmu`:
+
+- **The 8600's console subchannels** (`rtl/cpu.v`). TXCS<19:16> enables
+  the lines, TXCS<11:8> names the line TXDB goes to, and the logical
+  console (line 3) answers the microcode version (function 12), the array
+  configuration (13), snapshot status (30) and cancel (70), as SIMH's
+  `vax860_stddev.c`. SYSBOOT asks the logical console for the microcode
+  version and waits for line 3. (t70, t71)
+- **REMQUE restartable** (`rtl/ucode.def`). REMQUE wrote the predecessor's
+  link before the successor's could be written; a page fault on the second
+  write then made the restart remove the wrong entry, and STARTUP looped
+  on a broken queue in P1. Both places are now write-checked first.
+  (t69, t72; also sent upstream as
+  [Maverick-Shark/dec_vax#2](https://github.com/Maverick-Shark/dec_vax/pull/2))
+
+### What you need for OpenVMS
+
+OpenVMS is not in this repository and is not downloaded by it: you need
+your own OpenVMS VAX V7.3 distribution (the CD image) and the right to use
+it. Without license PAKs VMS still boots, and SYSTEM can log in on the
+console (`%LOGIN-S-LOGOPRCON, login allowed from OPA0:`).
+
+- A second microSD card (1 GB or more) for the VMS disk; the 4.3BSD card
+  stays as it is.
+- SIMH's `vax8600` to install VMS, and VMB.EXE, the VAX boot program,
+  from open-simh: `VAX/vmb.exe` in its source tree.
+
+### Install in SIMH
+
+Install VMS in SIMH's `vax8600` on an RP07, as the board has it: 32 MB,
+RP07 unit 0 (DRA0), the CD on a UDA50:
+
+```
+set cpu 32m
+set rp0 rp07
+attach rp0 vms73-rp07.dsk
+set rq0 cdrom
+attach -r rq0 OpenVMSVAX073OS.iso
+set rq1 dis
+set rq2 dis
+set rq3 dis
+```
+
+1. `boot rq0`: standalone BACKUP from the CD. Restore the system to the
+   RP07: `backup/image/verify dua0:vms073.b/save_set dra0:`
+2. `boot rp0`: the install procedure starts. Give a node name and an
+   SCSSYSTEMID, and the time zone. This image was made with the libraries,
+   the options, MSGHLP and DECnet Phase IV, without DECwindows, DECnet-Plus
+   and the Management Station, and no PAKs.
+3. Boot once more from rp0 in SIMH, log in, and `@sys$system:shutdown`.
+
+Write the image to the VMS card (check the device name first):
+
+```sh
+sudo dd if=vms73-rp07.dsk of=/dev/sdX bs=1M conv=fsync
+```
+
+### Boot
+
+The boot ROM holds 4.3BSD's `/boot`, so VMS is booted over the console
+UART, as the 8600's console would: VMB at 200 and a few instructions at
+18000 that set R0-R5 for an RP07 on the RH780 at TR 8, unit 0, and skip
+VMB's memory test (`tools/mkvmsboot.py`).
+
+1. Put the VMS card in the Pmod MicroSD, turn **SW0 on** (no boot from the
+   ROM), and press RESET (or load the bitstream).
+2. Send VMB and record the console:
+
+   ```sh
+   python3 tools/vmscast.py --vmb vmb.exe -o vms.cast
+   ```
+
+   `--vmb` makes the download frame just before it sends it, and the start
+   first writes the TODR with the time then, in VMS's form (10000000 +
+   hundredths of a second since 1 January, local time), as SIMH's 8600
+   does. The board's TODR has no battery and starts in July at every
+   configuration, earlier than the time VMS saved at its last shutdown;
+   without this VMS asks for the date (checked on the board: no prompt,
+   and `show time` agreed with the host). `-w`/`-k` pairs type the login.
+   VMS shows `Username:` only after a key, and the audit server's message
+   during STARTUP has a `Username:` too, so wait for the end of STARTUP:
+
+   ```sh
+   python3 tools/vmscast.py --vmb vmb.exe -o vms.cast \
+     -w "job terminated" -k '\r' -w "Welcome to OpenVMS" -k '' \
+     -w "Username: " -k 'SYSTEM\r' -w "Password: " -k 'password\r'
+   ```
+
+   Or make a frame with
+   `tools/mkvmsboot.py vmb.exe -o vmsboot.vxld` and send it with
+   `tools/vaxcon.py -f vmsboot.vxld`, then use a terminal program.
+3. Before turning the power off, `@sys$system:shutdown`.
+
+Not done yet: booting VMS from the ROM, the DZ11 line under VMS. Once in
+several boots, VMS halted early (halt code 5, at `%WBM-I-WBMINFO`); the
+next boot went through.
 
 ## The system
 
@@ -156,8 +280,8 @@ These steps were checked end to end on the board: a disk from `make disk`
 
 ## The bitstream
 
-As built by `make bit` from the sources of commit 4cec388 (unchanged since;
-Vivado 2025.2, non-project flow, `tcl/build.tcl`):
+As built by `make bit` from the sources with the OpenVMS changes (Vivado
+2025.2, non-project flow, `tcl/build.tcl`):
 
 | | |
 |---|---|
@@ -166,24 +290,24 @@ Vivado 2025.2, non-project flow, `tcl/build.tcl`):
 | Defines | `MISTER CLKPERBIT=16 CACHEIDX=10 CLK_MHZ=40 VAX_EXT_MEM ARTY_MEM_KB=32768 ARTY_SD ARTY_BOOTROM VAX_UNIBUS ARTY_DZ` |
 | Clocks | 100 MHz in → MMCM: core 40 MHz, MIG system 160 MHz, MIG reference 200 MHz; MIG UI 80 MHz (DDR3L at 320 MHz, 640 MT/s) |
 | MIG | mig_7series 4.2, MT41K128M16XX-15E (DDR3L 1.35 V, x16), 3125 ps, PHY 4:1, BL8, native interface; 32 MB of the 256 MB used |
-| Timing | WNS +1.344 ns, WHS +0.013 ns (all constraints met); core clock alone: WNS +3.152 ns |
+| Timing | WNS +1.344 ns, WHS +0.030 ns (all constraints met); core clock alone: WNS +1.856 ns |
 | Configuration | SPI x4, 33 MHz, compressed; `USR_ACCESS` = build time |
 
 Utilization after routing:
 
 | Resource | Used | Available | % |
 |---|---:|---:|---:|
-| Slice LUTs | 28,779 | 32,600 | 88.3 |
-| &nbsp;&nbsp;as logic | 27,678 | 32,600 | 84.9 |
+| Slice LUTs | 28,828 | 32,600 | 88.4 |
+| &nbsp;&nbsp;as logic | 27,727 | 32,600 | 85.1 |
 | &nbsp;&nbsp;as memory | 1,101 | 9,600 | 11.5 |
-| Slice registers | 16,177 | 65,200 | 24.8 |
+| Slice registers | 16,201 | 65,200 | 24.8 |
 | Block RAM tiles | 26 | 75 | 34.7 |
 | DSPs | 23 | 120 | 19.2 |
 | MMCM / PLL | 2 / 1 | 5 / 5 | |
 | I/O | 69 | 210 | 32.9 |
 
-By block (LUTs): `vax_core` 22,741 (of it the CPU 16,907), the MIG 3,704,
-the SD card 812, the DZ11 348, the MIG bridge 72. The block RAM holds the
+By block (LUTs): `vax_core` 22,790 (of it the CPU 16,957), the MIG 3,703,
+the SD card 813, the DZ11 347, the MIG bridge 72. The block RAM holds the
 16 KB cache, the microcode and the 32 KB boot ROM.
 
 Build times on an 8-thread run: `make mig` about 3 minutes, `make bit`
@@ -202,6 +326,23 @@ memory). It is slow, about 600,000 clocks a second: the default 400 million
 clocks (11 minutes) reach `Changing root device to hp0a`, and the bench
 stops with `TIMEOUT`.
 
+VMS runs on the bench too, without the boot ROM, at about 800,000 clocks
+a second: around 45 minutes to SYSBOOT's messages, 1.5 hours into
+STARTUP:
+
+```sh
+make simb BOOTROM=0                   # build/simb0
+python3 tools/mkvmsboot.py vmb.exe -o build/vmsboot.vxld
+cd build && ln -sfn ../../rtl rtl && SDIMG=/path/to/vms73-rp07.dsk \
+  simb0/Vsim_b_top vmsboot.vxld 12000000000
+```
+
+To type into it (`KEYWAIT`, `KEYS`), leave `KEYGAP=80000` clocks after each
+key: VMS reads the console one character at a time. `make simb BOOTROM=0
+SIM_DEFS=-DVAX_WATCH` logs every CPU write to the virtual longwords
+7FFE2680-7FFE269F, with the clock and the PC (how the REMQUE bug was found;
+change the range in `sim/sim_b_top.v`).
+
 ## Files
 
 | | |
@@ -214,12 +355,12 @@ stops with `TIMEOUT`.
 | `rtl/sdspi/` | SD card in SPI mode (MIT) |
 | `xdc/`, `tcl/` | constraints; Vivado scripts (MIG, bitstream, JTAG, flash) |
 | `sim/` | the bench: `sim_b_top.v`, MIG and SD models, `tb_arty.cpp` |
-| `tools/` | `vaxcon.py` (console scripts), `mkvxld.py` (download frames), `mkbootrom.py`, `concast.py` (console recording) |
+| `tools/` | `vaxcon.py` (console scripts), `mkvxld.py` (download frames), `mkbootrom.py`, `concast.py` (console recording), `mkvmsboot.py` (VMB boot frames), `vmscast.py` (VMS boot and recording) |
 | `43bsd/` | the 4.3BSD install: `make43.sh`, `mktap.py`, SIMH scripts |
 
 4.3BSD itself is not in this repository; `make disk` fetches it from
 [TUHS](https://www.tuhs.org/Archive/Distributions/UCB/4BSD/4.3BSD/) (the
-Caldera license for ancient UNIX).
+Caldera license for ancient UNIX). Nor is OpenVMS, or VMB.EXE.
 
 ## Acknowledgements
 
@@ -232,7 +373,9 @@ Caldera license for ancient UNIX).
 - **The Unix Heritage Society (TUHS)** and Warren Toomey, for keeping the
   4.3BSD distribution, and Caldera for its license for ancient UNIX.
 - **SIMH** (Bob Supnik and the open-simh contributors): its `vax8600`
-  installs 4.3BSD here, and served as the reference for the core's tests.
+  installs 4.3BSD and OpenVMS here, and served as the reference for the
+  core's tests; its `vax860_stddev.c` showed the 8600's console
+  subchannels and TODR, and its `vmb.exe` boots VMS.
 - The Computer History Wiki (gunkies.org), "Installing 4.3 BSD on SIMH",
   for the order of the distribution tape and the install.
 - **w11** by Walter F. J. Mueller, the PDP-11/70 in an FPGA: its Arty S7

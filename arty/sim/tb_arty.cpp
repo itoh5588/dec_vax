@@ -87,11 +87,22 @@ static std::vector<uint8_t> txq;            // bytes to send
 static size_t txpos = 0;
 static int tx_bit = -1, tx_cnt = 0;         // -1: idle
 static uint16_t tx_sh;
+// KEYGAP: clocks of idle line after each typed key (not the frame's
+// bytes): a slow program reads one character at a time from RXDB, which
+// holds only one
+static uint64_t key_gap = 0, tx_hold = 0;
+static size_t gap_from = 0;
 
 static void host_tx_step() {
 	if (tx_bit < 0) {
 		tb->uart_rxd = 1;
+		if (tx_hold) {
+			tx_hold--;
+			return;
+		}
 		if (txpos < txq.size()) {
+			if (txpos >= gap_from)
+				tx_hold = key_gap;
 			tx_sh = (1u << 9) | ((uint16_t)txq[txpos++] << 1);    // stop, data, start
 			tx_bit = 0;
 			tx_cnt = UART_CLKS;
@@ -212,6 +223,7 @@ int main(int argc, char **argv) {
 	uint64_t wait = getenv("WAIT") ? strtoull(getenv("WAIT"), 0, 0) : 200000;
 	std::string keys = getenv("KEYS") ? unescape(getenv("KEYS")) : "";
 	std::string keywait = getenv("KEYWAIT") ? getenv("KEYWAIT") : "";
+	key_gap = getenv("KEYGAP") ? strtoull(getenv("KEYGAP"), 0, 0) : 0;
 	// KEYSEQ: "wait=>keys|wait=>keys|...", after the frame, step by step:
 	// each wait is looked for in the output after the previous one, and
 	// its keys are typed 200000 clocks after it came (KEYS/KEYWAIT then
@@ -241,6 +253,7 @@ int main(int argc, char **argv) {
 		while ((c = fgetc(f)) != EOF) fr.push_back(c);
 		fclose(f);
 	}
+	gap_from = fr.size();
 
 	tb = new TOPCLASS;
 	tb->uart_rxd = 1;

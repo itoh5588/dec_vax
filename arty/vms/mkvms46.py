@@ -25,7 +25,9 @@ another account with the privileges for BACKUP/IMAGE and MOUNT/FOREIGN).
      the kit, no to the cluster questions; it restores LIBRARY and
      OPTIONAL, asks for the SYSTEM, SYSTEST and FIELD passwords (all
      $VMS_PASSWORD), runs AUTOGEN and reboots itself.
-  3. Log in, show system, and shut down.
+  3. Log in, set DUMPBUG to 0 (SYSGEN, and MODPARAMS.DAT for AUTOGEN),
+     show system, and shut down. With DUMPBUG 1 every shutdown ends by
+     writing a 32 MB crash dump, minutes on the SD card.
 
 A prompt it does not know stops the run with the prompt shown; the whole
 console is in WORK/mkvms46.log. Needs python3 and SIMH's vax8600
@@ -165,6 +167,20 @@ def shutdown(s):
     s.pump(3)
 
 
+def no_dump(s):
+    """DUMPBUG 0, from the next boot on: no crash dump at shutdown."""
+    s.send('run sys$system:sysgen\r')
+    s.expect(r'SYSGEN> ', 60)
+    for c in ('use current', 'set dumpbug 0', 'write current'):
+        s.send(c + '\r')
+        s.expect(r'SYSGEN> ', 60)
+    s.send('exit\r')
+    s.expect(PROMPT, 60)
+    for c in ('open/append m sys$system:modparams.dat', 'write m "DUMPBUG=0"',
+              'close m'):
+        dcl(s, c)
+
+
 def to_simh(s):
     """Back to sim> (the shut down VMS loops, or SIMH stopped on it)."""
     if not re.search(r'sim> $', s.seen):
@@ -276,7 +292,7 @@ def main():
         s.send('boot rp1\r')
         install(s)
 
-        step('3. log in, show system, shut down')
+        step('3. log in, DUMPBUG 0, show system, shut down')
         s.seen = ''
         s.pump(2)
         s.send('\r')
@@ -285,6 +301,7 @@ def main():
         s.expect(r'Password: $', 60)
         s.send(os.environ['VMS_PASSWORD'] + '\r')
         s.expect(PROMPT, 120)
+        no_dump(s)
         dcl(s, 'show system')
         shutdown(s)
         to_simh(s)

@@ -188,10 +188,23 @@ VMB's memory test (`tools/mkvmsboot.py`). The system disk is then DRA0.
    `tools/mkvmsboot.py vmb.exe -o vmsboot.vxld` and send it with
    `tools/vaxcon.py -f vmsboot.vxld`, then use a terminal program.
 3. The DZ11 line (Pmod JC) is TTA0: 9600, 8 bits, no parity under VMS.
-4. Before turning the power off, `@sys$system:shutdown`. V4.6's last step
-   writes a crash dump of the 32 MB to SYSDUMP.DMP through the SD card a
-   block at a time, a few minutes with nothing on the console; wait for
-   `SYSTEM SHUTDOWN COMPLETE`.
+4. Before turning the power off, `@sys$system:shutdown` and wait for
+   `SYSTEM SHUTDOWN COMPLETE`. `make vms46` sets the SYSGEN parameter
+   DUMPBUG to 0; with 1 (V4.6's default) the shutdown's last step writes
+   a crash dump of the 32 MB to SYSDUMP.DMP through the SD card a block at
+   a time, a few minutes with nothing on the console. On a disk made
+   before, set it once (it takes effect at the next boot):
+
+   ```
+   $ run sys$system:sysgen
+   SYSGEN> use current
+   SYSGEN> set dumpbug 0
+   SYSGEN> write current
+   SYSGEN> exit
+   ```
+
+   and add `DUMPBUG=0` to `SYS$SYSTEM:MODPARAMS.DAT` so that AUTOGEN
+   keeps it.
 
 Not done yet: booting VMS from the ROM. A later VMS now and then halted
 early in its boot (halt code 5, a machine check while an interrupt is

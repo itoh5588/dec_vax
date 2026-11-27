@@ -18,6 +18,8 @@
 //         copied to 0 and started: power on, and 4.3BSD comes up); off
 //         = boot (arty_sys, ARTY_BOOTROM); 4.3BSD's reboot resets the
 //         system and so boots again, as the 8600's console does
+//  SW1:   with SW0 off, on = the boot ROM boots VMS instead (VMB from
+//         the ROM, the system disk the RP07 on the card, unit 0)
 //
 //  SPDX-License-Identifier: BSD-2-Clause
 //  Copyright (c) 2026 Akio Itoh
@@ -37,7 +39,7 @@ module arty_top_b (
 	output        led1_r,
 	output        led1_g,
 	output        led1_b,
-	input   [0:0] sw,
+	input   [1:0] sw,
 
 	// Pmod JC: the DZ11's line 0 (a USB-UART, 3.3 V)
 	output        jc_txd,               // JC1
@@ -148,10 +150,13 @@ module arty_top_b (
 	always @(posedge clk)
 		jc_rxd_s <= {jc_rxd_s[0], jc_rxd};
 
-	reg [1:0] sw_sync;
+	reg [1:0] sw_sync, sw1_sync;
 	initial sw_sync = 2'b00;
-	always @(posedge clk)
-		sw_sync <= {sw_sync[0], sw[0]};
+	initial sw1_sync = 2'b00;
+	always @(posedge clk) begin
+		sw_sync  <= {sw_sync[0], sw[0]};
+		sw1_sync <= {sw1_sync[0], sw[1]};
+	end
 
 	// ------------------------------------------------------------ system
 	wire halted, running, ldr_active, ldr_ok, ldr_bad, miss;
@@ -176,6 +181,7 @@ module arty_top_b (
 		.sd_active  (sd_active),
 `ifdef ARTY_BOOTROM
 		.no_autoboot(sw_sync[1]),
+		.rom_vms(sw1_sync[1]),
 		.reboot_req (reboot_req),
 `endif
 `ifdef ARTY_DZ

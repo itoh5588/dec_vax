@@ -46,6 +46,8 @@ set_property -dict { PACKAGE_PIN V16   IOSTANDARD LVCMOS33 PULLUP true } [get_po
 
 # SW0: on = no boot from the boot ROM after reset
 set_property -dict { PACKAGE_PIN H14   IOSTANDARD LVCMOS33 } [get_ports { sw[0] }]
+# SW1: on = the boot ROM boots VMS (VMB) instead of 4.3BSD's /boot
+set_property -dict { PACKAGE_PIN H18   IOSTANDARD LVCMOS33 } [get_ports { sw[1] }]
 
 # ---------------------------------------------------------------- Pmod SD
 # Pmod MicroSD at JD (SPI mode): CS JD1, MOSI JD2, MISO JD3, SCLK JD4
@@ -58,7 +60,7 @@ set_property DRIVE 8 [get_ports {sd_cs_n sd_mosi sd_sclk}]
 
 # ---------------------------------------------------------------- timing
 # asynchronous inputs (synchronized inside), slow outputs
-set_false_path -from [get_ports {ck_rst uart_txd_in sw[0] jc_rxd}]
+set_false_path -from [get_ports {ck_rst uart_txd_in sw[*] jc_rxd}]
 set_false_path -to   [get_ports {uart_rxd_out jc_txd led[*] led0_r led0_g led0_b led1_r led1_g led1_b}]
 set_false_path -to   [get_ports {sd_cs_n sd_mosi sd_sclk}]
 set_false_path -from [get_ports sd_miso]

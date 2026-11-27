@@ -162,14 +162,28 @@ sudo dd if=vms/work/vms46-rp07.dsk of=/dev/sdX bs=1M conv=fsync
 
 ### Boot
 
-The boot ROM holds 4.3BSD's `/boot`, so VMS is booted over the console
-UART, as the 8600's console would: VMB at 200 and a few instructions at
-18000 that set R0-R5 for an RP07 on the RH780 at TR 8, unit 0, and skip
-VMB's memory test (`tools/mkvmsboot.py`). The system disk is then DRA0.
+VMS is booted as the 8600's console would: VMB at 200, started with R0-R5
+set for an RP07 on the RH780 at TR 8, unit 0, and VMB's memory test
+skipped. The system disk is then DRA0. Two ways:
+
+**From the boot ROM**, with nothing but the board: when the bitstream was
+built with `make bit VMB=vmb.exe`, the boot ROM holds VMB too
+(`tools/mkbootrom.py --vmb`: VMB at 8200, a start past it that moves it
+to 200 and jumps to it, and at 8000 a jump to that start). Put the VMS
+card in, turn **SW0 off and SW1 on**, and power on (or press RESET): the
+ROM is copied to 0 and started at 8000 instead of 2. The board's TODR has
+no battery and starts in July at every configuration, earlier than the
+time VMS saved at its last shutdown, so VMS would ask for the date;
+`make vms46` sets the SYSGEN parameter TIMEPROMPTWAIT to 0, and VMS comes
+up with the time it saved last instead (`show time`, then `set time` if
+it matters). On a disk made before, set it as DUMPBUG below.
+
+**Over the console UART**, with the time from the host:
 
 1. Put the VMS card in the Pmod MicroSD, turn **SW0 on** (no boot from the
    ROM), and press RESET (or load the bitstream).
-2. Send VMB and record the console:
+2. Send VMB (`tools/mkvmsboot.py`: VMB at 200, the start at 18000) and
+   record the console:
 
    ```sh
    python3 tools/vmscast.py --vmb vmb.exe -o vms.cast
@@ -178,10 +192,9 @@ VMB's memory test (`tools/mkvmsboot.py`). The system disk is then DRA0.
    `--vmb` makes the download frame just before it sends it, and the start
    first writes the TODR with the time then, in VMS's form (10000000 +
    hundredths of a second since 1 January, local time), as SIMH's 8600
-   does. The board's TODR has no battery and starts in July at every
-   configuration, earlier than the time VMS saved at its last shutdown;
-   without this VMS asks for the date (checked on the board: no prompt,
-   and `show time` agreed with the host). `-w`/`-k` pairs type the login.
+   does: VMS takes the host's time, with no prompt whatever
+   TIMEPROMPTWAIT is (checked on the board: `show time` agreed with the
+   host). `-w`/`-k` pairs type the login.
    VMS shows `Username:` only after a key, so wait for the end of STARTUP
    (on later versions the audit server's message during STARTUP has a
    `Username:` too):
@@ -207,14 +220,15 @@ VMB's memory test (`tools/mkvmsboot.py`). The system disk is then DRA0.
    $ run sys$system:sysgen
    SYSGEN> use current
    SYSGEN> set dumpbug 0
+   SYSGEN> set timepromptwait 0
    SYSGEN> write current
    SYSGEN> exit
    ```
 
-   and add `DUMPBUG=0` to `SYS$SYSTEM:MODPARAMS.DAT` so that AUTOGEN
-   keeps it.
+   and add `DUMPBUG=0` and `TIMEPROMPTWAIT=0` to
+   `SYS$SYSTEM:MODPARAMS.DAT` so that AUTOGEN keeps them.
 
-Not done yet: booting VMS from the ROM. A later VMS now and then halted
+A later VMS now and then halted
 early in its boot (halt code 5, a machine check while an interrupt is
 being initiated); that is under study, and was not seen in the V4.6 boots
 so far.
@@ -241,6 +255,8 @@ Switches and LEDs:
 
 - **SW0** on: no boot from the ROM after reset; the console monitor waits
   (for downloads with `tools/vaxcon.py` and `tools/mkvxld.py`).
+- **SW1** on (SW0 off): the boot ROM boots VMS (VMB) instead of 4.3BSD's
+  `/boot`, if the ROM was built with `VMB=`.
 - **RESET** button: the whole system again (the MIG keeps its calibration).
 - LEDs (LD2-LD5, `led[0]`-`led[3]`): CPU running (blinks), CPU halted,
   DDR3 calibrated, download. RGB LED 1 green: SD card ready; red: an SD
@@ -281,6 +297,7 @@ A native Linux machine should work the same way, without usbipd.
 cd arty
 make disk        # 4.3BSD from TUHS, installed by SIMH: 43bsd/work/43bsd-rp07.dsk
 make bit         # boot ROM, MIG, bitstream: build/vivado/arty_top_b.bit
+                 # (VMB=.../open-simh/VAX/vmb.exe: the ROM boots VMS too)
 ```
 
 `make disk` takes a minute or two after the download (110 MB). It runs

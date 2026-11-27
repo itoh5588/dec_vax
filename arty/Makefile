@@ -8,6 +8,7 @@
 #
 #   make disk      4.3BSD on an RP07 image, installed with SIMH (43bsd/)
 #   make bootrom   the boot ROM from that disk's /boot -> build/bootrom.hex
+#                  (VMB=vmb.exe: also VMS's VMB, booted with SW1 on)
 #   make mig       the MIG for the DDR3L (Vivado) -> build/mig
 #   make bit       the bitstream -> build/vivado/arty_top_b.bit
 #   make program   load it over JTAG (volatile)
@@ -42,9 +43,11 @@ $(DISK) $(BOOTAOUT):
 
 bootrom: build/bootrom.hex
 
-build/bootrom.hex: $(BOOTAOUT) tools/mkbootrom.py
+# VMB= open-simh's VAX/vmb.exe: the boot ROM also boots VMS, at 8000
+VMB ?=
+build/bootrom.hex: $(BOOTAOUT) tools/mkbootrom.py tools/mkvmsboot.py $(VMB)
 	mkdir -p build
-	python3 tools/mkbootrom.py $< -o $@
+	python3 tools/mkbootrom.py $< $(if $(VMB),--vmb $(VMB)) -o $@
 
 # ---------------------------------------------------------------- VMS
 # VAX/VMS V4.6 from its distribution tape (vms/mkvms46.py): TAPE= the
@@ -95,7 +98,8 @@ SIM_UART_CLKS = 24
 SIMB_SRC = $(CORE) $(OURS) sim/mig_ui_model.v sim/sdspi_model.v sim/sim_b_top.v
 
 # make simb BOOTROM=0: no boot ROM, in build/simb0 (for a download frame
-# such as VMB's, tools/mkvmsboot.py); SIM_DEFS adds defines (-DVAX_WATCH)
+# such as VMB's, tools/mkvmsboot.py); SIM_DEFS adds defines (-DVAX_WATCH;
+# -DSIM_ROM_VMS: SW1 on, the boot ROM boots VMS)
 ifeq ($(BOOTROM),0)
 SIMB_DIR = build/simb0
 SIMB_ROM =

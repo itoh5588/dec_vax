@@ -7,10 +7,13 @@
 //    loader        program download over the same UART (frame below)
 //    autostart     types "FR<addr><CR>G" into the console monitor after a
 //                  load, as vax_system.v does on MiSTer
-//    boot ROM      (ARTY_BOOTROM) a program in block RAM, copied to memory
-//                  at 0 after reset and started at 2 with R10 = R11 = 0:
+//    boot ROM      (ARTY_BOOTROM) 80 KB in block RAM, copied to memory
+//                  at 0 after reset and started with R10 = R11 = 0: at 2,
 //                  4.3BSD's /boot, which then boots hp(0,0)vmunix by
-//                  itself. It waits for the memory and, with ARTY_SD, for
+//                  itself; or with rom_vms high (a switch) at 8000, where
+//                  tools/mkbootrom.py --vmb puts a start that moves VMB to
+//                  200 and boots VMS from the RP07 as the 8600's console
+//                  does. It waits for the memory and, with ARTY_SD, for
 //                  the card; no_autoboot high (a switch) leaves it out.
 //    reboot        (ARTY_BOOTROM) the VAX 8600 console's reboot: 4.3BSD's
 //                  reboot writes TXDB_BOOT (F02h; on the line, 02h) and
@@ -88,6 +91,7 @@ module arty_sys #(
 `endif
 `ifdef ARTY_BOOTROM
 	input        no_autoboot,           // high: no boot ROM after reset
+	input        rom_vms,               // high: start the ROM at 8000 (VMS)
 	output reg   reboot_req,            // one clock: reset the system
 `endif
 	input        clk,
@@ -169,10 +173,10 @@ module arty_sys #(
 `ifndef ARTY_BOOTROM_HEX
 `define ARTY_BOOTROM_HEX "bootrom.hex"
 `endif
-	localparam ROMW = 8192;                 // 32 KB, longwords
+	localparam ROMW = 20480;                // 80 KB, longwords
 	reg  [31:0] rom [0:ROMW-1];
 	reg  [31:0] rom_q;
-	reg  [12:0] rom_a;
+	reg  [14:0] rom_a;
 	reg         rom_pend;                   // not copied yet since reset
 	reg         rom_ph;                     // 1: rom_q is rom[rom_a]
 	reg         rom_cp;                     // L_ROM/L_ANS: the ROM's copy
@@ -246,7 +250,7 @@ module arty_sys #(
 				ldr_hold <= 1'b1;
 `ifdef ARTY_BOOTROM
 				rom_cp   <= 1'b1;
-				rom_a    <= 13'd0;
+				rom_a    <= 15'd0;
 				rom_ph   <= 1'b0;
 `endif
 			end
@@ -332,15 +336,16 @@ module arty_sys #(
 				if (!rom_ph)
 					rom_ph <= 1'b1;
 				else begin
-					ldr_adr <= {10'd0, rom_a};
+					ldr_adr <= {8'd0, rom_a};
 					ldr_sel <= 4'b1111;
 					ldr_dat <= rom_q;
 					ldr_stb <= 1'b1;
 					rom_ph  <= 1'b0;
-					rom_a   <= rom_a + 13'd1;
+					rom_a   <= rom_a + 15'd1;
 					if (rom_a == ROMW - 1) begin
 						rom_pend <= 1'b0;
-						l_start  <= 32'd2;      // past the entry mask
+						// past /boot's entry mask, or the VMS start
+						l_start  <= rom_vms ? 32'h8000 : 32'd2;
 						ls       <= L_ANS;
 						l_ack    <= 1'b1;
 					end

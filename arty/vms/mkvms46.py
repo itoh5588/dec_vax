@@ -30,9 +30,12 @@ open-simh/simtools, $ODS2).
      the kit, no to the cluster questions; it restores LIBRARY and
      OPTIONAL, asks for the SYSTEM, SYSTEST and FIELD passwords (all
      $VMS_PASSWORD), runs AUTOGEN and reboots itself.
-  3. Log in, set DUMPBUG to 0 (SYSGEN, and MODPARAMS.DAT for AUTOGEN),
-     show system, and shut down. With DUMPBUG 1 every shutdown ends by
-     writing a 32 MB crash dump, minutes on the SD card.
+  3. Log in, set DUMPBUG and TIMEPROMPTWAIT to 0 (SYSGEN, and
+     MODPARAMS.DAT for AUTOGEN), show system, and shut down. With DUMPBUG
+     1 every shutdown ends by writing a 32 MB crash dump, minutes on the
+     SD card; TIMEPROMPTWAIT 0 lets the boot ROM's VMS boot (SW1) come up
+     without a date: the board's TODR has no battery, and VMS takes the
+     time it saved last.
 
 A prompt it does not know stops the run with the prompt shown; the whole
 console is in WORK/mkvms46.log. Needs python3 and SIMH's vax8600
@@ -176,16 +179,18 @@ def shutdown(s):
 
 
 def no_dump(s):
-    """DUMPBUG 0, from the next boot on: no crash dump at shutdown."""
+    """From the next boot on: no crash dump at shutdown (DUMPBUG 0), and
+    no date asked for when the TODR is not valid (TIMEPROMPTWAIT 0)."""
     s.send('run sys$system:sysgen\r')
     s.expect(r'SYSGEN> ', 60)
-    for c in ('use current', 'set dumpbug 0', 'write current'):
+    for c in ('use current', 'set dumpbug 0', 'set timepromptwait 0',
+              'write current'):
         s.send(c + '\r')
         s.expect(r'SYSGEN> ', 60)
     s.send('exit\r')
     s.expect(PROMPT, 60)
     for c in ('open/append m sys$system:modparams.dat', 'write m "DUMPBUG=0"',
-              'close m'):
+              'write m "TIMEPROMPTWAIT=0"', 'close m'):
         dcl(s, c)
 
 
@@ -335,7 +340,7 @@ def main():
         s.send('boot rp1\r')
         install(s)
 
-        step('3. log in, DUMPBUG 0, show system, shut down')
+        step('3. log in, DUMPBUG and TIMEPROMPTWAIT 0, show system, shut down')
         s.seen = ''
         s.pump(2)
         s.send('\r')

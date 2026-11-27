@@ -44,6 +44,11 @@ module sim_b_top #(
 `endif
 `ifdef ARTY_BOOTROM
 		.no_autoboot(1'b0),
+`ifdef SIM_ROM_VMS
+		.rom_vms(1'b1),
+`else
+		.rom_vms(1'b0),
+`endif
 		.reboot_req (),
 `endif
 `ifdef ARTY_DZ

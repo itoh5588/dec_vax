@@ -392,9 +392,29 @@ These steps were checked end to end on the board: a disk from `make disk`
 
 ## The bitstream
 
-As built by `make bit VMB=vmb.exe` from the sources with the VMS
-changes and the 80 KB boot ROM (Vivado 2025.2, non-project flow,
-`tcl/build.tcl`):
+**A prebuilt one**, to try the board without building:
+[`releases/arty-s7_20261127.bit`](../releases/arty-s7_20261127.bit)
+(sha256 `0c1da2c0bbac49704cdbe623aa996a5895c67168ff899e9cbb4792b2aa8fb231`),
+built by `make bit VMB=vmb.exe` from a3f371d (the RTL has not changed
+since). Its boot ROM holds 4.3BSD's `/boot` and VMB (open-simh's
+`VAX/vmb.exe`): SW1 off boots 4.3BSD, SW1 on boots VMS, from the card in
+the slot. Load it with Vivado (or Vivado Lab), from `arty/`:
+
+```sh
+vivado -mode batch -nojournal -nolog -source tcl/program.tcl -tclargs ../releases/arty-s7_20261127.bit   # JTAG
+vivado -mode batch -nojournal -nolog -source tcl/flash.tcl -tclargs ../releases/arty-s7_20261127.bit     # SPI flash
+```
+
+The disks are not included: `make disk` for 4.3BSD, `make vms46` for
+VMS (above). It is a work in progress, with known problems: VMS now and
+then halts early in its boot (halt code 5; RESET and boot again), and
+opening the console UART on the host can halt a running VAX (then, with
+SW1 on, the ROM boots VMS again): open the terminal before the VAX is
+started and keep it open.
+
+The figures below are for this bitstream, as built by
+`make bit VMB=vmb.exe` from the sources with the VMS changes and the
+80 KB boot ROM (Vivado 2025.2, non-project flow, `tcl/build.tcl`):
 
 | | |
 |---|---|

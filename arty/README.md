@@ -336,8 +336,9 @@ These steps were checked end to end on the board: a disk from `make disk`
 
 ## The bitstream
 
-As built by `make bit` from the sources with the VMS changes (Vivado
-2025.2, non-project flow, `tcl/build.tcl`):
+As built by `make bit VMB=vmb.exe` from the sources with the VMS
+changes and the 80 KB boot ROM (Vivado 2025.2, non-project flow,
+`tcl/build.tcl`):
 
 | | |
 |---|---|
@@ -346,25 +347,26 @@ As built by `make bit` from the sources with the VMS changes (Vivado
 | Defines | `MISTER CLKPERBIT=16 CACHEIDX=10 CLK_MHZ=40 VAX_EXT_MEM ARTY_MEM_KB=32768 ARTY_SD ARTY_BOOTROM VAX_UNIBUS ARTY_DZ` |
 | Clocks | 100 MHz in → MMCM: core 40 MHz, MIG system 160 MHz, MIG reference 200 MHz; MIG UI 80 MHz (DDR3L at 320 MHz, 640 MT/s) |
 | MIG | mig_7series 4.2, MT41K128M16XX-15E (DDR3L 1.35 V, x16), 3125 ps, PHY 4:1, BL8, native interface; 32 MB of the 256 MB used |
-| Timing | WNS +1.344 ns, WHS +0.030 ns (all constraints met); core clock alone: WNS +1.856 ns |
+| Timing | WNS +1.240 ns, WHS +0.016 ns (all constraints met), both on the core clock; the MIG UI clock: WNS +4.238 ns |
 | Configuration | SPI x4, 33 MHz, compressed; `USR_ACCESS` = build time |
 
 Utilization after routing:
 
 | Resource | Used | Available | % |
 |---|---:|---:|---:|
-| Slice LUTs | 28,828 | 32,600 | 88.4 |
-| &nbsp;&nbsp;as logic | 27,727 | 32,600 | 85.1 |
+| Slice LUTs | 29,098 | 32,600 | 89.3 |
+| &nbsp;&nbsp;as logic | 27,997 | 32,600 | 85.9 |
 | &nbsp;&nbsp;as memory | 1,101 | 9,600 | 11.5 |
-| Slice registers | 16,201 | 65,200 | 24.8 |
-| Block RAM tiles | 26 | 75 | 34.7 |
+| Slice registers | 16,205 | 65,200 | 24.9 |
+| Block RAM tiles | 50 | 75 | 66.7 |
 | DSPs | 23 | 120 | 19.2 |
 | MMCM / PLL | 2 / 1 | 5 / 5 | |
-| I/O | 69 | 210 | 32.9 |
+| I/O | 70 | 210 | 33.3 |
 
-By block (LUTs): `vax_core` 22,790 (of it the CPU 16,957), the MIG 3,703,
-the SD card 813, the DZ11 347, the MIG bridge 72. The block RAM holds the
-16 KB cache, the microcode and the 32 KB boot ROM.
+By block (LUTs): `vax_core` 22,789 (of it the CPU 16,957), the MIG 3,703,
+the SD card 807, the DZ11 346, the MIG bridge 71. The block RAM holds the
+16 KB cache, the microcode (18 tiles in `vax_core`) and the 80 KB boot ROM
+(32 tiles: its address is 15 bits, and Vivado builds it 32768 deep).
 
 Build times on an 8-thread run: `make mig` about 3 minutes, `make bit`
 about 8 minutes. The reports are in `build/vivado/` (`rou_util.rpt`,

@@ -60,11 +60,11 @@ the console monitor.
 
 ## VMS
 
-![VAX/VMS V4.6 booting on the Arty S7: VMB to show device](docs/boot-vms46.gif)
+![VAX/VMS V4.6 booting on the Arty S7 from the boot ROM: RESET to show device](docs/boot-vms46.gif)
 
 **VAX/VMS V4.6** (June 1987) boots on the same bitstream from its own card:
-VMB, SYSBOOT, STARTUP, and the login, 33 seconds from sending VMB to the
-end of STARTUP. VMS V4 has no license management, so it takes logins on
+with SW1 on, the boot ROM starts VMB, then SYSBOOT, STARTUP, and the
+login, 33 seconds from RESET to the end of STARTUP, no date asked. VMS V4 has no license management, so it takes logins on
 the DZ11 line too: SYSTEM logged in on the console (OPA0) and on `tty00`'s
 Pmod JC terminal (TTA0) at the same time:
 
@@ -81,8 +81,9 @@ VAX/VMS  KG   on node  26-NOV-2026 23:09:57.16   Uptime    0 00:35:02
 00000109 _TTA0:          LEF      7       56   0 00:00:00.92       320    238
 ```
 
-The recording (`docs/boot-vms46.cast`, real times; pauses over 2 s cut
-short in the GIF) goes from VMB to `show device d`, 40 s.
+The recording (`docs/boot-vms46.cast`, `tools/vmscast.py --rom`, real
+times; pauses over 2 s cut short in the GIF) goes from RESET to
+`show device d`, 37 s.
 
 Two changes to the core, found while bringing up a later VMS, are in the
 bitstream; both are tested against SIMH's `vax8600` in `tests/mmu`:

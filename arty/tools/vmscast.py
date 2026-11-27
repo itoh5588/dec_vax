@@ -4,7 +4,8 @@
 """vmscast.py - boot VMS on the Arty S7 and record the console as an
 asciinema v2 cast, no pyserial.
 
-    vmscast.py [-p /dev/ttyUSB1] (-f vmsboot.vxld | --vmb vmb.exe [-u UNIT])
+    vmscast.py [-p /dev/ttyUSB1] (-f vmsboot.vxld | --vmb vmb.exe [-u UNIT]
+               | --rom)
                [-w WAIT -k KEYS]...
                [-a AFTER] [-t SECONDS] -o boot.cast
 
@@ -19,6 +20,10 @@ AFTER seconds, or after SECONDS of silence (default 300).
 
 --vmb makes the frame (tools/mkvmsboot.py) just before sending it, with
 the TODR set to the time then: VMS does not ask for the date.
+
+--rom sends nothing and waits for the board: with SW0 off and SW1 on the
+boot ROM boots VMS after RESET or power-on. The recording starts with the
+first character.
 
 The frame's answer (06/15) and NULs are left out of the cast. Turn it into a
 GIF with agg (github.com/asciinema/agg):
@@ -73,6 +78,10 @@ def main():
     src = ap.add_mutually_exclusive_group(required=True)
     src.add_argument('-f', '--frame')
     src.add_argument('--vmb', help='VMB.EXE: make the frame, TODR = now')
+    src.add_argument('--rom', action='store_true',
+                     help='send nothing: the boot ROM boots VMS (SW1 on); '
+                     'the recording starts with the first character after '
+                     'RESET or power-on')
     ap.add_argument('-u', '--unit', type=int, default=0, help='RP07 unit (--vmb)')
     ap.add_argument('-w', '--waitfor', action='append', default=[])
     ap.add_argument('-k', '--keys', action='append', default=[])
@@ -95,7 +104,7 @@ def main():
     # the board drops what comes before it): a CR, until '>' comes back
     buf = b''
     tw = time.time()
-    while b'>' not in buf:
+    while not a.rom and b'>' not in buf:
         if time.time() - tw > 30:
             sys.exit('vmscast: no console monitor prompt')
         os.write(fd, b'\r')
@@ -104,14 +113,18 @@ def main():
             buf += os.read(fd, 4096)
     time.sleep(0.2)
     termios.tcflush(fd, termios.TCIFLUSH)
-    if a.vmb:
+    if a.rom:
+        frame = b''
+        print('[vmscast: waiting; press RESET (SW0 off, SW1 on)]',
+              file=sys.stderr)
+    elif a.vmb:
         todr = mkvmsboot.vms_todr()
         frame = mkvmsboot.build(open(a.vmb, 'rb').read(), a.unit, todr)
         print('[vmscast: TODR %08X]' % todr, file=sys.stderr)
     else:
         frame = open(a.frame, 'rb').read()
     write_all(fd, frame)
-    t0 = time.time()
+    t0 = None if a.rom else time.time()      # --rom: the first character
     seen = ''
     step = 0
     typing = b''
@@ -138,6 +151,8 @@ def main():
         if not d:
             continue
         last = now
+        if t0 is None:
+            t0 = now
         s = d.decode('latin-1').replace('\0', '').replace('\x06', '').replace('\x15', '')
         if not s:
             continue
@@ -156,7 +171,8 @@ def main():
         seen = seen[-4000:]
     out.close()
     os.close(fd)
-    print('\n[vmscast: %s, %.1f s]' % (a.output, last - t0), file=sys.stderr)
+    print('\n[vmscast: %s, %.1f s]' % (a.output, last - (t0 or last)),
+          file=sys.stderr)
 
 
 if __name__ == '__main__':

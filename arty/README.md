@@ -231,8 +231,41 @@ it matters). On a disk made before, set it as DUMPBUG below.
 
 A later VMS now and then halted
 early in its boot (halt code 5, a machine check while an interrupt is
-being initiated); that is under study, and was not seen in the V4.6 boots
-so far.
+being initiated); that is under study. V4.6 did it once so far, in a boot
+over the UART; RESET and boot again.
+
+### VMS quick reference
+
+What a newcomer to VAX/VMS V4.6 needs on this board, each tried on it or
+on SIMH's `vax8600` with the same disk (Ctrl+S / Ctrl+Q excepted). DCL
+takes abbreviations (`dir` for `DIRECTORY`) and does not care about case.
+The console (OPA0) is set up as a hardcopy LA36, so EDT works in line
+mode.
+
+| | |
+|---|---|
+| Log in | after `job terminated`, Return; `Username:` SYSTEM, the password |
+| Log out | `logout` |
+| Interrupt, cancel | Ctrl+Y (back to `$`), Ctrl+C; Ctrl+U clears the line; Ctrl+S / Ctrl+Q stop and go on |
+| Help | `help`, `help show time`; Return at each `Topic?` / `Subtopic?` until `$` |
+| Who, what | `show system`, `show users`, `show process`, `show memory/physical` |
+| Disks | `show device d` (DRA0 the system disk) |
+| Time | `show time`; `set time=27-NOV-2026:23:31:00` (after a power-off VMS has the time of its last shutdown) |
+| Where am I | `show default`; `set default sys$login` (home), `set default [.work]`, `set default [-]` (up) |
+| List files | `directory`, `directory/size *.txt`, `directory sys$system:*.par` |
+| Make a file | `create hello.txt`, type the lines, Ctrl+Z |
+| Look at a file | `type hello.txt` |
+| Copy, rename | `copy a.txt b.txt`, `rename b.txt c.txt` |
+| Delete | `delete c.txt;*` (every version); `purge` keeps only the newest of each file |
+| Directories | `create/directory [.work]`; delete an empty one as a file: `delete work.dir;*` |
+| Edit | `edit hello.txt` (EDT, line mode, `*` prompt: `type whole`; `insert` puts lines before the current one, Ctrl+Z ends them; `exit` saves a new version, `quit` does not) |
+| Add a user | `set default sys$system`, `mcr authorize`, then `add guest/password=guestpw/uic=[200,1]/device=sys$sysdevice/directory=[guest]/owner="Guest"` and `exit`; then `create/directory sys$sysdevice:[guest]/owner=[200,1]`. The password comes expired: `set password` at the first login |
+| System parameters | `run sys$system:sysgen`: `use current`, `show dumpbug`, `set ...`, `write current`, `exit` (the next boot); and the same in `SYS$SYSTEM:MODPARAMS.DAT` for AUTOGEN |
+| Second terminal | the DZ11 line on Pmod JC, TTA0: 9600, 8 bits, no parity; Return for `Username:` |
+| Shut down | `@sys$system:shutdown`: 0 minutes, a reason, Return for the rest, until `SYSTEM SHUTDOWN COMPLETE`; then power off or RESET |
+
+`mcr authorize` opens SYSUAF.DAT in the current directory: run it from
+SYS$SYSTEM, or it asks whether to create a new, empty one (answer N).
 
 ## The system
 

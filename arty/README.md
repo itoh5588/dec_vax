@@ -110,40 +110,48 @@ own distribution and the right to use it.
 - SIMH's `vax8600` to install VMS, and VMB.EXE, the VAX boot program,
   from open-simh: `VAX/vmb.exe` in its source tree.
 - The VAX/VMS V4.6 distribution tape BB-BT05D-BE as a SIMH tape image
-  (four save sets: VMS046.A, REQUIRED, LIBRARY, OPTIONAL), and a BACKUP
-  that can restore an image save set to a disk: the 8600's standalone
-  BACKUP came on the console's own medium, not on this tape, so the
-  install borrows a running VMS in SIMH (we used OpenVMS VAX 7.3).
+  (four save sets: VMS046.A, REQUIRED, LIBRARY, OPTIONAL).
+- `ods2` from open-simh's [simtools](https://github.com/open-simh/simtools)
+  (`extracters/ods2`; `make -f makefile.unix DEFS=-D_FILE_OFFSET_BITS=64
+  LDLIBS= VHDOPTS=/dev/null` builds it without libedit), in PATH or as
+  `$ODS2`. The 8600's standalone BACKUP came on the console's own medium,
+  not on this tape; the install makes one from the tape's own files with
+  it (`vms/stabackit.py`).
 
 ### Install VAX/VMS V4.6 in SIMH
 
 ```sh
-HELPER_PASSWORD=... VMS_PASSWORD=... \
-make vms46 TAPE=BB-BT05D-BE_VMS_4.6_87.tap.gz HELPER=helper-rp07.dsk
+VMS_PASSWORD=... make vms46 TAPE=BB-BT05D-BE_VMS_4.6_87.tap.gz
 ```
 
 makes `vms/work/vms46-rp07.dsk` unattended, in about 3 minutes
 (`vms/mkvms46.py`; the whole console goes to `vms/work/mkvms46.log`).
-`HELPER` is an RP07 image with a VMS that boots in SIMH's `vax8600` and
-has BACKUP (OpenVMS VAX 7.3 does; it is copied, never changed), and
-`HELPER_PASSWORD` its SYSTEM password. `VMS_PASSWORD` becomes the new
-system's SYSTEM, SYSTEST and FIELD password. What it does:
+`VMS_PASSWORD` becomes the new system's SYSTEM, SYSTEST and FIELD
+password. What it does:
 
-1. SIMH boots the helper from RP07 unit 0, with the new disk on unit 1
-   and the tape on TU0, and restores REQUIRED, an image save set:
+1. It builds a standalone BACKUP disk on the host, as STABACKIT.COM
+   would on a running VMS: SYSBOOT, SYS.EXE, the drivers, STASYSGEN.EXE
+   as SYSINIT.EXE and STABACKUP.EXE as STANDALON.EXE, from the tape's
+   REQUIRED and LIBRARY save sets into [SYS0.SYSEXE] of a new Files-11
+   RP07 (`vms/stabackit.py`, with `ods2`).
+2. SIMH boots it from RP07 unit 0 (`boot rp0/R5:1`, with STABACKIT's
+   SYSGEN parameters typed to SYSBOOT), with the new disk on unit 1 and
+   the tape on TU0, and standalone BACKUP restores REQUIRED, an image
+   save set:
 
    ```
-   $ mount/foreign mta0:
-   $ mount/foreign dra1:
    $ backup/image/verify mta0:required/save_set/rewind dra1:
    ```
 
-   (`%BACKUP-E-NOBADDATA` for a new disk image does no harm.)
-2. `boot rp1`: VAX/VMS V4.6 starts and goes on with the install. It
+   (`%BACKUP-E-NOBADDATA` for a new disk image does no harm.) Instead,
+   `HELPER=` an RP07 image with a VMS that boots in SIMH's `vax8600` and
+   has BACKUP, and its SYSTEM password in `HELPER_PASSWORD`, does the
+   restore on that VMS (copied, never changed).
+3. `boot rp1`: VAX/VMS V4.6 starts and goes on with the install. It
    answers the date, `MTA0` for the drive holding the kit, no to the two
    cluster questions; the install restores LIBRARY and OPTIONAL from the
    tape, takes the passwords, runs AUTOGEN and reboots.
-3. It logs in, shows the system, and shuts it down.
+4. It logs in, sets DUMPBUG to 0, shows the system, and shuts it down.
 
 A question it does not know stops it, with the question shown. Write the
 disk to the VMS card (check the device name first):
@@ -387,7 +395,7 @@ change the range in `sim/sim_b_top.v`).
 | `sim/` | the bench: `sim_b_top.v`, MIG and SD models, `tb_arty.cpp` |
 | `tools/` | `vaxcon.py` (console scripts), `mkvxld.py` (download frames), `mkbootrom.py`, `concast.py` (console recording), `mkvmsboot.py` (VMB boot frames), `vmscast.py` (VMS boot and recording) |
 | `43bsd/` | the 4.3BSD install: `make43.sh`, `mktap.py`, SIMH scripts |
-| `vms/` | the VAX/VMS V4.6 install: `mkvms46.py` (SIMH on a pty) |
+| `vms/` | the VAX/VMS V4.6 install: `mkvms46.py` (SIMH on a pty), `stabackit.py` (standalone BACKUP from the tape) |
 
 4.3BSD itself is not in this repository; `make disk` fetches it from
 [TUHS](https://www.tuhs.org/Archive/Distributions/UCB/4BSD/4.3BSD/) (the

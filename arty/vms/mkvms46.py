@@ -4,23 +4,28 @@
 """mkvms46.py - VAX/VMS V4.6 on an RP07 for the Arty S7, installed with
 SIMH's vax8600 from the distribution tape, unattended.
 
-    HELPER_PASSWORD=... VMS_PASSWORD=... \\
+    VMS_PASSWORD=... \\
     mkvms46.py --tape BB-BT05D-BE_VMS_4.6_87.tap[.gz] \\
-               --helper some-vms-rp07.dsk [--work DIR] [-o vms46-rp07.dsk]
+               [--work DIR] [-o vms46-rp07.dsk] [--helper some-vms-rp07.dsk]
 
 The tape (BB-BT05D-BE, a SIMH tape image) holds four save sets: VMS046.A
 (an update kit), REQUIRED (an image save set of the system disk),
 LIBRARY and OPTIONAL. The standalone BACKUP that restores REQUIRED came
-on the 8600 console's own medium, not on this tape, so a running VMS does
-it: --helper is an RP07 image with a VMS that boots in SIMH's vax8600 and
-has BACKUP (OpenVMS VAX 7.3 does). It is copied first and never changed.
-Its SYSTEM password comes from $HELPER_PASSWORD (--helper-user for
-another account with the privileges for BACKUP/IMAGE and MOUNT/FOREIGN).
+on the 8600 console's own medium, not on this tape; vms/stabackit.py
+builds one from the tape's own files on the host (needs ods2 from
+open-simh/simtools, $ODS2).
 
-  1. SIMH boots the helper from RP07 unit 0, with the new disk on unit 1
-     and the tape on TU0, and restores REQUIRED to the new disk:
-     mount/foreign, backup/image/verify mta0:required/save_set dra1:.
-     Then the helper is shut down.
+  1. SIMH boots the standalone BACKUP disk from RP07 unit 0, with the new
+     disk on unit 1 and the tape on TU0: conversationally, with
+     STABACKIT.COM's SYSGEN parameters typed to SYSBOOT. It restores
+     REQUIRED to the new disk: backup/image/verify mta0:required/save_set
+     dra1:. Then SIMH stops it.
+
+     Or, with --helper: an RP07 image with a VMS that boots in SIMH's
+     vax8600 and has BACKUP (OpenVMS VAX 7.3 does), copied first and never
+     changed, does the restore; its SYSTEM password from $HELPER_PASSWORD
+     (--helper-user for another account with the privileges for
+     BACKUP/IMAGE and MOUNT/FOREIGN).
   2. boot rp1: VAX/VMS V4.6 goes on with the install: the date, MTA0 for
      the kit, no to the cluster questions; it restores LIBRARY and
      OPTIONAL, asks for the SYSTEM, SYSTEST and FIELD passwords (all
@@ -46,6 +51,9 @@ import shutil
 import subprocess
 import sys
 import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import stabackit  # noqa: E402
 
 DATE = lambda: time.strftime('%d-%b-%Y %H:%M').upper()
 PROMPT = r'[\r\n]\$ '
@@ -181,6 +189,42 @@ def no_dump(s):
         dcl(s, c)
 
 
+def helper_restore(s, user):
+    """Boot the helper VMS from rp0 and restore REQUIRED to DRA1."""
+    s.send('boot rp0\r')
+    login(s, user, os.environ['HELPER_PASSWORD'])
+    for c in ('mount/foreign mta0:', 'mount/foreign dra1:'):
+        dcl(s, c)
+    s.send('backup/image/verify mta0:required/save_set/rewind dra1:\r')
+    s.expect(PROMPT, 1800)
+    if re.search(r'%BACKUP-F-|%BACKUP-E-(?!NOBADDATA)', s.log_text()):
+        s.fail('BACKUP failed')
+    for c in ('dismount dra1:', 'dismount/nounload mta0:'):
+        dcl(s, c)
+    shutdown(s)
+    to_simh(s)
+
+
+def standalone_restore(s):
+    """Boot standalone BACKUP from rp0 and restore REQUIRED to DRA1.
+    Standalone VMS keeps SIMH from seeing ^E, so an EXPECT rule stops
+    SIMH when BACKUP is done and asks whether to do another."""
+    s.send("expect 'Enter \"YES\" to continue: '\r")
+    s.expect(r'sim> $', 30)
+    s.send('boot rp0/R5:1\r')                 # SYSBOOT's prompt
+    s.expect(r'SYSBOOT> *$', 120)
+    for c in stabackit.PARAMS:
+        s.send(c + '\r')
+        s.expect(r'SYSBOOT> *$', 30)
+    s.send('continue\r')
+    s.expect(r'Stand-alone BACKUP', 300)
+    s.expect(PROMPT, 60)
+    s.send('backup/image/verify mta0:required/save_set/rewind dra1:\r')
+    s.expect(r'Enter "YES" to continue: sim> $', 1800)
+    if re.search(r'%BACKUP-F-|%BACKUP-E-(?!NOBADDATA)', s.log_text()):
+        s.fail('BACKUP failed')
+
+
 def to_simh(s):
     """Back to sim> (the shut down VMS loops, or SIMH stopped on it)."""
     if not re.search(r'sim> $', s.seen):
@@ -228,13 +272,14 @@ def install(s):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('--tape', required=True, help='BB-BT05D-BE, .tap or .tap.gz')
-    ap.add_argument('--helper', required=True,
-                    help='an RP07 image with a VMS that has BACKUP (copied)')
+    ap.add_argument('--helper',
+                    help='an RP07 image with a VMS that has BACKUP (copied); '
+                    'without it a standalone BACKUP made from the tape')
     ap.add_argument('--helper-user', default='SYSTEM')
     ap.add_argument('--work', default='vms46-work')
     ap.add_argument('-o', '--output', default='vms46-rp07.dsk')
     a = ap.parse_args()
-    for v in ('HELPER_PASSWORD', 'VMS_PASSWORD'):
+    for v in ('HELPER_PASSWORD', 'VMS_PASSWORD') if a.helper else ('VMS_PASSWORD',):
         if not os.environ.get(v):
             sys.exit('mkvms46: set $%s' % v)
     sim = os.environ.get('VAX8600') or shutil.which('vax8600') or \
@@ -251,8 +296,13 @@ def main():
             shutil.copyfileobj(f, g)
     else:
         shutil.copyfile(a.tape, tape)
-    step('copy the helper disk')
-    shutil.copyfile(a.helper, os.path.join(work, 'helper.dsk'))
+    if a.helper:
+        step('copy the helper disk')
+        shutil.copyfile(a.helper, os.path.join(work, 'helper.dsk'))
+    else:
+        step('build the standalone BACKUP disk from the tape')
+        stabackit.find_ods2()
+        stabackit.build(tape, os.path.join(work, 'helper.dsk'), work)
     out = os.path.join(work, 'vms46-rp07.dsk')
     if os.path.exists(out):
         os.remove(out)
@@ -273,19 +323,12 @@ def main():
             s.send('N\r')
             s.expect(r'sim> ', 60)
 
-        step('1. boot the helper, restore REQUIRED to the new disk')
-        s.send('boot rp0\r')
-        login(s, a.helper_user, os.environ['HELPER_PASSWORD'])
-        for c in ('mount/foreign mta0:', 'mount/foreign dra1:'):
-            dcl(s, c)
-        s.send('backup/image/verify mta0:required/save_set/rewind dra1:\r')
-        s.expect(PROMPT, 1800)
-        if re.search(r'%BACKUP-F-|%BACKUP-E-(?!NOBADDATA)', s.log_text()):
-            s.fail('BACKUP failed')
-        for c in ('dismount dra1:', 'dismount/nounload mta0:'):
-            dcl(s, c)
-        shutdown(s)
-        to_simh(s)
+        if not a.helper:
+            step('1. boot standalone BACKUP, restore REQUIRED to the new disk')
+            standalone_restore(s)
+        else:
+            step('1. boot the helper, restore REQUIRED to the new disk')
+            helper_restore(s, a.helper_user)
 
         step('2. boot the new disk: the VAX/VMS V4.6 install')
         s.seen = ''

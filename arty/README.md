@@ -267,6 +267,28 @@ mode.
 `mcr authorize` opens SYSUAF.DAT in the current directory: run it from
 SYS$SYSTEM, or it asks whether to create a new, empty one (answer N).
 
+### Compilers
+
+VAX C V2.4 (1988) and VAX FORTRAN V4.7 (1987), DEC's own kits of the
+time, install on V4.6 with VMSINSTAL (in SIMH's `vax8600`, then the disk
+goes to the card) and compile, link and run on the board; `cc` takes
+about 5 seconds for a short program:
+
+```
+$ cc hello
+$ link hello,sys$library:vaxcrtl/lib
+$ run hello
+hello from VAX C on the FPGA VAX 8600: 1
+...
+$ fortran hellof
+$ link hellof
+$ run hellof
+hello from VAX FORTRAN on the FPGA VAX 8600: 1
+...
+```
+
+How to install them: to come.
+
 ## The system
 
 ![The Arty S7-50 with the Pmod MicroSD on JD and a USB-UART on JC](docs/arty-s7.jpg)

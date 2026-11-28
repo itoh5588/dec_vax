@@ -324,9 +324,12 @@ card is written once at the end.
    ```
 
    Boot it (`boot rp0`), log in as SYSTEM, and copy VAXC024.A, restore
-   VAXC024.B into a directory and write it again as one save set:
+   VAXC024.B into a directory and write it again as one save set. SIMH's
+   UDA50 comes up a few seconds after STARTUP: until `show device dua`
+   lists DUA0, a MOUNT fails with `%MOUNT-F-NOSUCHDEV`.
 
    ```
+   $ show device dua
    $ create/dir sys$sysroot:[kits.vaxc024b]
    $ mount/override=identification dua0:
    $ copy dua0:[000000]vaxc024.a sys$sysroot:[kits]
@@ -363,9 +366,15 @@ card is written once at the end.
 
    Answer YES to VMSINSTAL's questions; for FORTRAN, 0 copies of the
    release notes and the default (NO) for FORSYSDEF. Each kit runs its
-   installation verification procedure: VAX C ends with `SUCCESSFUL`,
-   FORTRAN with `TEST PASSED`. Before FORTRAN's, a
-   `%DCL-W-IVVERB ... \VMI$CALLBACK\` is printed; it does no harm.
+   installation verification procedure (IVP). FORTRAN's ends with
+   `TEST PASSED`; before it a `%DCL-W-IVVERB ... \VMI$CALLBACK\` is
+   printed, which does no harm. VAX C's ends with `SUCCESSFUL`, but in
+   SIMH it fails now and then at `vfork/exec test #13` and VMSINSTAL
+   stops with `%VMSINSTAL-F-UNEXPECTED` (the test wants a child process to
+   have used some CPU time, and in SIMH it can finish within a clock
+   tick). The files are already in place by then, and VAX C works: `cc`,
+   `link` and `run` on a disk where that happened. It passed on another
+   run.
 
 3. **Write the card back** with `dd` (check it by reading it again and
    comparing checksums), put it in, and boot VMS on the board. Link C

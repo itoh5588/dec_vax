@@ -15,11 +15,20 @@
 > See [arty/README.md](arty/README.md); a prebuilt bitstream is in
 > [releases/](releases/arty-s7_20261128.bit).
 >
+> **The board:** the Arty S7-50, with the Pmod MicroSD (the RP07) on JD and
+> a USB-UART (the DZ11 line) on JC.
+>
 > <img src="arty/docs/arty-s7.jpg" alt="The Arty S7-50 with the Pmod MicroSD on JD and a USB-UART on JC" width="400">
 >
-> ![4.3BSD booting on the Arty S7](arty/docs/boot-43bsd.gif)
+> **4.3BSD booting:** the console from power-up to `login:`, 100 s
+> (pauses over 2 s cut short).
 >
-> ![VAX/VMS V4.6 booting on the Arty S7](arty/docs/boot-vms46.gif)
+> ![4.3BSD booting on the Arty S7: the console from power-up to login](arty/docs/boot-43bsd.gif)
+>
+> **VAX/VMS V4.6 booting from the boot ROM:** RESET to `show device d`,
+> 37 s (pauses over 2 s cut short).
+>
+> ![VAX/VMS V4.6 booting on the Arty S7 from the boot ROM: RESET to show device](arty/docs/boot-vms46.gif)
 >
 > Built on r-vax by Anders Magnusson and its MiSTer branch by Maverick-Shark,
 > with 4.3BSD from CSRG, UC Berkeley, kept by TUHS; see the

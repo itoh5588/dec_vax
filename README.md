@@ -13,7 +13,7 @@
 > MHz on a simple loop (`software/bench.bin`), not comparable with DEC's
 > VUP ratings.
 > See [arty/README.md](arty/README.md); a prebuilt bitstream is in
-> [releases/](releases/arty-s7_20261127.bit).
+> [releases/](releases/arty-s7_20261128.bit).
 >
 > <img src="arty/docs/arty-s7.jpg" alt="The Arty S7-50 with the Pmod MicroSD on JD and a USB-UART on JC" width="400">
 >

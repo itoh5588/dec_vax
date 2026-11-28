@@ -408,10 +408,16 @@ vivado -mode batch -nojournal -nolog -source tcl/flash.tcl -tclargs ../releases/
 ```
 
 The disks are not included: `make disk` for 4.3BSD, `make vms46` for
-VMS (above). It is a work in progress, with a known problem: opening the
-console UART on the host can halt a running VAX (then, with SW1 on, the
-ROM boots VMS again): open the terminal before the VAX is started and
-keep it open.
+VMS (above). It is a work in progress.
+
+Opening the console UART on the host can reset the board (then, with SW1
+on, the boot ROM boots VMS again). That is the board, not the design:
+with the jumper JP2 on, the FT2232's DTR is wired to CK_RST, the RESET
+button's net (for an Arduino-style reset of a soft processor), and DTR
+going from off to on resets everything. Take JP2 off (the RESET button
+still works), or else turn HUPCL off once after the board's USB comes
+up, before the VAX is started (`stty -F /dev/ttyUSB1 -hupcl`; that open
+resets it once): later opens and closes leave DTR on and do not reset.
 
 The figures below are for this bitstream, as built by
 `make bit VMB=vmb.exe` from the sources with the VMS changes and the

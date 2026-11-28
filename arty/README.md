@@ -161,6 +161,13 @@ disk to the VMS card (check the device name first):
 sudo dd if=vms/work/vms46-rp07.dsk of=/dev/sdX bs=1M conv=fsync
 ```
 
+Checked on the board: a disk made this way, with no helper, written to a
+new card (and read back, the same sha256), booted from the boot ROM with
+SW1 on, with no date asked, to the end of STARTUP; SYSTEM logged in,
+SYSGEN showed DUMPBUG and TIMEPROMPTWAIT 0, and the shutdown took 26
+seconds. Three more boots from a reset (the bitstream loaded over JTAG)
+took 43-46 seconds each to the end of STARTUP, and all shut down cleanly.
+
 ### Boot
 
 VMS is booted as the 8600's console would: VMB at 200, started with R0-R5

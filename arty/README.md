@@ -316,6 +316,8 @@ Switches and LEDs:
 - **SW1** on (SW0 off): the boot ROM boots VMS (VMB) instead of 4.3BSD's
   `/boot`, if the ROM was built with `VMB=`.
 - **RESET** button: the whole system again (the MIG keeps its calibration).
+- **JP2** (CK_RST): off. On, the FT2232's DTR resets the board when a
+  program opens the console UART (below).
 - LEDs (LD2-LD5, `led[0]`-`led[3]`): CPU running (blinks), CPU halted,
   DDR3 calibrated, download. RGB LED 1 green: SD card ready; red: an SD
   transfer failed.
@@ -418,6 +420,10 @@ going from off to on resets everything. Take JP2 off (the RESET button
 still works), or else turn HUPCL off once after the board's USB comes
 up, before the VAX is started (`stty -F /dev/ttyUSB1 -hupcl`; that open
 resets it once): later opens and closes leave DTR on and do not reset.
+This is the Arty board's wiring (other Arty boards with a CK_RST jumper
+may do the same), not the core: the MiSTer port's console does not go
+through such a line. With JP2 off, opening the UART and toggling DTR and
+RTS left VMS V4.6 running, checked on the board.
 
 The figures below are for this bitstream, as built by
 `make bit VMB=vmb.exe` from the sources with the VMS changes and the

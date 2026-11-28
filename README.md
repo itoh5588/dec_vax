@@ -8,7 +8,9 @@
 > microSD card, and boots the unmodified 4.3BSD GENERIC kernel to
 > multi-user mode at power-up. 4.3BSD takes it for a VAX 8600, and so does
 > VMS: VAX/VMS V4.6 (1987) boots from another card in 33 seconds and takes
-> logins on the console and the DZ11 line. It is not a copy of DEC's 8600
+> logins on the console and the DZ11 line. DEC's VAX C V2.4 and VAX FORTRAN
+> V4.7 install on it and compile, link and run programs on the board
+> ([Compilers](arty/README.md#compilers)). It is not a copy of DEC's 8600
 > hardware, and much slower: about 1.1 million instructions a second at 40
 > MHz on a simple loop (`software/bench.bin`), not comparable with DEC's
 > VUP ratings.

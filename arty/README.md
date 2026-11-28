@@ -229,10 +229,12 @@ it matters). On a disk made before, set it as DUMPBUG below.
    and add `DUMPBUG=0` and `TIMEPROMPTWAIT=0` to
    `SYS$SYSTEM:MODPARAMS.DAT` so that AUTOGEN keeps them.
 
-A later VMS now and then halted
-early in its boot (halt code 5, a machine check while an interrupt is
-being initiated); that is under study. V4.6 did it once so far, in a boot
-over the UART; RESET and boot again.
+VMS used to halt now and then early in its boot (halt code 5, a machine
+check while an interrupt is being initiated; V4.6 once in 7 boots): the
+interrupt microcode read the requested level twice, and a timer request
+that came between the two reads sent a software interrupt down the
+hardware path. Fixed in `rtl/ucode.def` (test `tests/mmu/t73`); with it,
+V4.6 booted from the ROM 20 times in a row on the board.
 
 ### VMS quick reference
 
@@ -407,7 +409,8 @@ vivado -mode batch -nojournal -nolog -source tcl/flash.tcl -tclargs ../releases/
 
 The disks are not included: `make disk` for 4.3BSD, `make vms46` for
 VMS (above). It is a work in progress, with known problems: VMS now and
-then halts early in its boot (halt code 5; RESET and boot again), and
+then halts early in its boot (halt code 5; RESET and boot again; fixed
+in the sources since, not in this prebuilt bitstream), and
 opening the console UART on the host can halt a running VAX (then, with
 SW1 on, the ROM boots VMS again): open the terminal before the VAX is
 started and keep it open.

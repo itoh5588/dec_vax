@@ -289,7 +289,87 @@ hello from VAX FORTRAN on the FPGA VAX 8600: 1
 ...
 ```
 
-How to install them: to come.
+How they were installed (the kits are not included; they are on the
+bitsavers mirror at the University of Stuttgart,
+`http://bitsavers.informatik.uni-stuttgart.de/bits/DEC/vax/vms/`):
+
+- VAX C: `RX50/VAX_C_V2.2-V2.4_RX50_Distkit.tgz`, the three V2.4 floppies
+  `dsk_files/BL-CS91F-BE ... 1of3.dsk`, `2of3`, `3of3` (here `d1.dsk`,
+  `d2.dsk`, `d3.dsk`).
+- VAX FORTRAN: `TK50/aq-fp86f-bn_vax_fortran_v4.7_bin_fort047_1987.tap`,
+  a SIMH tape as it is.
+
+The work is done in SIMH's `vax8600` on copies of the VMS disk; the
+card is written once at the end.
+
+1. **VAX C's kit into one save set.** VAXC024.A is a file on the first
+   floppy, but VAXC024.B is a BACKUP save set over all three floppies
+   (a sequential-disk save set), and BACKUP asks for each next floppy on
+   the same drive. SIMH ignores Ctrl+E while VMS waits, so let SIMH
+   change the floppy itself. On a scratch copy of the VMS disk
+   (`kits.dsk`):
+
+   ```
+   set cpu 32m
+   set rp0 rp07
+   attach rp0 kits.dsk
+   set rq enabled
+   set rq0 rx50
+   attach -r rq0 d1.dsk
+   set rq1 dis
+   set rq2 dis
+   set rq3 dis
+   expect "mount volume 2 on _DUA0:" attach -r rq0 d2.dsk; send "YES\r"; continue
+   expect "mount volume 3 on _DUA0:" attach -r rq0 d3.dsk; send "YES\r"; continue
+   ```
+
+   Boot it (`boot rp0`), log in as SYSTEM, and copy VAXC024.A, restore
+   VAXC024.B into a directory and write it again as one save set:
+
+   ```
+   $ create/dir sys$sysroot:[kits.vaxc024b]
+   $ mount/override=identification dua0:
+   $ copy dua0:[000000]vaxc024.a sys$sysroot:[kits]
+   $ dismount dua0:
+   $ mount/foreign dua0:
+   $ backup/log dua0:vaxc024.b/save sys$sysroot:[kits.vaxc024b]
+   $ dismount dua0:
+   $ backup/log sys$sysroot:[kits.vaxc024b]*.*;* -
+     sys$sysroot:[kits]vaxc024.b/save/block=9000/group=25/interchange
+   $ @sys$system:shutdown
+   ```
+
+2. **Install both.** Read the card into a file (`dd`), and boot a copy
+   of it in SIMH with `kits.dsk` as the second drive, read only, and the
+   FORTRAN tape:
+
+   ```
+   set cpu 32m
+   set rp0 rp07
+   set rp1 rp07
+   attach rp0 card.dsk
+   attach -r rp1 kits.dsk
+   set tu enabled
+   attach -r tu0 aq-fp86f-bn_vax_fortran_v4.7_bin_fort047_1987.tap
+   ```
+
+   ```
+   $ mount/nowrite/override=identification dra1:
+   $ @sys$update:vmsinstal vaxc024 dra1:[sys0.kits]
+   $ @sys$update:vmsinstal fort047 mta0:
+   $ dismount dra1:
+   $ @sys$system:shutdown
+   ```
+
+   Answer YES to VMSINSTAL's questions; for FORTRAN, 0 copies of the
+   release notes and the default (NO) for FORSYSDEF. Each kit runs its
+   installation verification procedure: VAX C ends with `SUCCESSFUL`,
+   FORTRAN with `TEST PASSED`. Before FORTRAN's, a
+   `%DCL-W-IVVERB ... \VMI$CALLBACK\` is printed; it does no harm.
+
+3. **Write the card back** with `dd` (check it by reading it again and
+   comparing checksums), put it in, and boot VMS on the board. Link C
+   programs with `sys$library:vaxcrtl/lib`.
 
 ## The system
 

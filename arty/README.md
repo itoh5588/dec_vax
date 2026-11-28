@@ -369,12 +369,13 @@ card is written once at the end.
    installation verification procedure (IVP). FORTRAN's ends with
    `TEST PASSED`; before it a `%DCL-W-IVVERB ... \VMI$CALLBACK\` is
    printed, which does no harm. VAX C's ends with `SUCCESSFUL`, but in
-   SIMH it fails now and then at `vfork/exec test #13` and VMSINSTAL
-   stops with `%VMSINSTAL-F-UNEXPECTED` (the test wants a child process to
-   have used some CPU time, and in SIMH it can finish within a clock
-   tick). The files are already in place by then, and VAX C works: `cc`,
-   `link` and `run` on a disk where that happened. It passed on another
-   run.
+   SIMH it often fails (3 of 5 runs here) at `vfork/exec test #13` and
+   VMSINSTAL stops with `%VMSINSTAL-F-UNEXPECTED` (the test wants a child
+   process to have used some CPU time, and in SIMH it can finish within a
+   clock tick). The files are already in place by then, and VAX C works: `cc`,
+   `link` and `run` on a disk where that happened. FORTRAN was installed
+   after it in the same session as written above, passed its IVP and
+   compiled, linked and ran a program.
 
 3. **Write the card back** with `dd` (check it by reading it again and
    comparing checksums), put it in, and boot VMS on the board. Link C
